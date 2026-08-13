@@ -1,0 +1,31 @@
+
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>EDF Sugarcane Survey Dashboard UI</title>
+      <meta name="description" content="Analyze sugarcane farmer survey data for insights on cultivation, climate risks, yield, and nutrient management, empowering informed agricultural decisions." />
+      <meta name="robots" content="noindex, nofollow" />
+      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+      <script>
+        // Apply the persisted theme before first paint so returning dark-mode
+        // users never see a flash of the light theme while React hydrates.
+        try {
+          if (localStorage.getItem('edf_theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      </script>
+
+    </head>
+
+    <body>
+      
+      <div id="root"></div>
+      <script type="module" src="/src/main.tsx"></script>
+      
+    </body>
+  </html>
+  

@@ -1,0 +1,673 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   EDF Sugarcane Dashboard — Agronomy Design System
+   Earth-tone palette: warm sage canvas, white surfaces, deep forest ink,
+   olive/gold/clay/sage/steel chart series. Flat, quiet — no glassmorphism,
+   no heavy shadows, no gradients on interactive elements.
+───────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --main-offset: 0px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --main-offset: 256px;
+  }
+}
+
+/* ─── Design Tokens ─────────────────────────────────────────────────────── */
+:root {
+  /* Font */
+  --font-size: 14px;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Spacing */
+  --spacing-page:  24px;
+  --spacing-gap:   16px;
+  --spacing-card:  20px;
+
+  /* ── Agronomy palette primitives ── */
+  --canvas:      #F5F7F2;
+  --surface:     #FFFFFF;
+  --ink:         #2B341F;
+  --ink-2:       #233B2B;
+  --olive:       #494A2B;
+  --gold:        #A89366;
+  --gold-soft:   #DBC593;
+  --clay:        #BA6254;
+  --clay-soft:   #D4A297;
+  --sage:        #437053;
+  --steel:       #6783A8;
+  --hairline:    rgba(43, 52, 34, 0.08);
+
+  /* Surfaces — mapped from the primitives above so every existing
+     bg-background / bg-card / border-border utility picks up the new look */
+  --background:           var(--canvas);
+  --foreground:            var(--ink);
+  --card:                 var(--surface);
+  --card-foreground:      var(--ink);
+  --popover:              var(--surface);
+  --popover-foreground:   var(--ink);
+
+  /* Brand / Primary — tan/brass accent */
+  --primary:             var(--gold);
+  --primary-dark:        var(--ink-2);
+  --primary-mid:         var(--gold);
+  --primary-light:       var(--gold-soft);
+  --primary-surface:     rgba(168, 147, 102, 0.12);
+  --primary-foreground:  var(--ink);
+
+  /* Secondary surfaces */
+  --secondary:            #EFF1EA;
+  --secondary-foreground: var(--ink);
+  --muted:                #EFF1EA;
+  --muted-foreground:     #8A8F84;
+
+  /* Accent */
+  --accent:               #F3EEE1;
+  --accent-foreground:    var(--ink-2);
+
+  /* Status */
+  --destructive:          var(--clay);
+  --destructive-foreground: #FFFFFF;
+  --amber:                var(--gold);
+  --amber-surface:        rgba(168, 147, 102, 0.12);
+  --sky:                  var(--steel);
+  --coral:                var(--clay);
+
+  /* Borders & Inputs */
+  --border:               var(--hairline);
+  --input:                var(--hairline);
+  --input-background:     var(--surface);
+  --switch-background:    var(--gold);
+  --ring:                 var(--gold);
+
+  /* Typography weights */
+  --font-weight-normal:   400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* Shadows — flat and quiet, no heavy drop shadows */
+  --shadow-card:       0 1px 2px rgba(43, 52, 34, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(43, 52, 34, 0.08);
+  --shadow-nav:        0 1px 2px rgba(43, 52, 34, 0.04);
+  --shadow-modal:      0 24px 64px rgba(43, 52, 34, 0.14);
+  /* Premium card-lift hover — layered near+far shadow for a soft floating
+     feel (used only by .glass-card-master, not the shared --shadow-card-hover
+     token, so it never touches .card-hover's map-wrapper hover elsewhere). */
+  --shadow-card-lift:  0 2px 6px rgba(43, 52, 34, 0.06), 0 16px 32px rgba(43, 52, 34, 0.10);
+
+  /* Border radius */
+  --radius:         16px;
+  --radius-card:    16px;
+  --radius-inner:   12px;
+  --radius-btn:     10px;
+  --radius-badge:   999px;
+  --radius-input:   10px;
+  --radius-sm:      8px;
+
+  /* Charts — draw in this order: olive, gold-soft, clay-soft, sage, steel */
+  --chart-1: var(--olive);
+  --chart-2: var(--gold-soft);
+  --chart-3: var(--clay-soft);
+  --chart-4: var(--sage);
+  --chart-5: var(--steel);
+
+  /* Sidebar / icon rail — blends with the page canvas */
+  --sidebar:                    var(--canvas);
+  --sidebar-foreground:         var(--ink);
+  --sidebar-primary:            var(--gold);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent:             rgba(168, 147, 102, 0.14);
+  --sidebar-accent-foreground:  var(--ink);
+  --sidebar-border:             var(--hairline);
+  --sidebar-ring:               var(--gold);
+
+  /* Nav surface — its own token (rather than reusing --surface directly) so
+     dark mode can make the top bar read as a hair darker than cards without
+     touching light mode, where it stays identical to --surface. */
+  --nav-surface: var(--surface);
+
+  /* Table row hover tint — was a hardcoded ink-tinted rgba computed in JS;
+     promoted to a token so dark mode can lighten instead of darken. */
+  --row-hover: rgba(43, 52, 34, 0.03);
+
+  /* "Always-dark" emphasis surface — used by the handful of deliberately
+     dark accent panels (EDF Agronomy insight card, LIVE badges) that need
+     to keep reading as a dark, high-contrast block even once the rest of
+     the page is dark. Decoupled from --ink, which flips to a light color
+     in dark mode. */
+  --surface-emphasis:    var(--ink);
+  --foreground-emphasis: #F5F7F2;
+
+  /* ── Single source of truth for the light↔dark transition ──────────────
+     Every rule below that touches a theme-reactive property references
+     this one token instead of authoring its own duration, so the whole UI
+     — background, sidebar, header, cards, charts, tables, borders, text,
+     icons, buttons, shadows — settles in lockstep instead of arriving in
+     waves. Component-specific *interaction* transitions (hover lift,
+     focus rings) stay separate and are layered on top, never replacing
+     this list, so hover/focus speed is unaffected. */
+  --theme-transition:
+    background-color 350ms ease-in-out,
+    border-color 350ms ease-in-out,
+    color 350ms ease-in-out,
+    box-shadow 350ms ease-in-out,
+    fill 350ms ease-in-out,
+    stroke 350ms ease-in-out;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   DARK THEME — dark green-black enterprise surface. Overrides the same
+   custom properties every component already consumes via var(...), so
+   nothing outside this block needs to change to pick it up.
+───────────────────────────────────────────────────────────────────────────── */
+.dark {
+  --canvas:      #0a0b0b;   /* was #141916 → surface separation 1.24 */
+  --surface:     #19231c;
+  --ink:         #ECEFEA;
+  --ink-2:       #C7D0C9;
+  --hairline:    rgba(255, 255, 255, 0.08);
+
+  /* Chart/brand hues (--olive, --gold, --gold-soft, --clay, --clay-soft,
+     --sage, --steel) are intentionally NOT overridden — chart series and
+     brand accents stay the exact colors used in light mode. */
+
+  --secondary:            #1D2420;
+  --secondary-foreground: var(--ink);
+  --muted:                #1D2420;
+  --muted-foreground:     #93A098;
+
+  --accent:               #202821;
+  --accent-foreground:    var(--ink);
+
+  --primary-surface:      rgba(219, 197, 147, 0.14);
+
+  --shadow-card:       0 1px 2px rgba(0, 0, 0, 0.32);
+  --shadow-card-hover: 0 4px 14px rgba(0, 0, 0, 0.42);
+  --shadow-nav:        0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-modal:      0 24px 64px rgba(0, 0, 0, 0.55);
+  --shadow-card-lift:  0 2px 8px rgba(0, 0, 0, 0.35), 0 16px 36px rgba(0, 0, 0, 0.45);
+
+  --nav-surface: #131916;
+  --row-hover:   rgba(255, 255, 255, 0.045);
+
+  --surface-emphasis:    #0B0F0C;
+  --foreground-emphasis: #F5F7F2;
+
+  
+}
+
+/* ─── Tailwind Theme Mapping ─────────────────────────────────────────────── */
+@theme inline {
+  --color-canvas:                      var(--canvas);
+  --color-surface:                     var(--surface);
+  --color-ink:                         var(--ink);
+  --color-ink-2:                       var(--ink-2);
+  --color-olive:                       var(--olive);
+  --color-gold:                        var(--gold);
+  --color-gold-soft:                   var(--gold-soft);
+  --color-clay:                        var(--clay);
+  --color-clay-soft:                   var(--clay-soft);
+  --color-sage:                        var(--sage);
+  --color-steel:                       var(--steel);
+  --color-hairline:                    var(--hairline);
+
+  --color-background:                  var(--background);
+  --color-foreground:                  var(--foreground);
+  --color-card:                        var(--card);
+  --color-card-foreground:             var(--card-foreground);
+  --color-popover:                     var(--popover);
+  --color-popover-foreground:          var(--popover-foreground);
+  --color-primary:                     var(--primary);
+  --color-primary-foreground:          var(--primary-foreground);
+  --color-secondary:                   var(--secondary);
+  --color-secondary-foreground:        var(--secondary-foreground);
+  --color-muted:                       var(--muted);
+  --color-muted-foreground:            var(--muted-foreground);
+  --color-accent:                      var(--accent);
+  --color-accent-foreground:           var(--accent-foreground);
+  --color-destructive:                 var(--destructive);
+  --color-destructive-foreground:      var(--destructive-foreground);
+  --color-border:                      var(--border);
+  --color-input:                       var(--input);
+  --color-input-background:            var(--input-background);
+  --color-switch-background:           var(--switch-background);
+  --color-ring:                        var(--ring);
+  --color-chart-1:                     var(--chart-1);
+  --color-chart-2:                     var(--chart-2);
+  --color-chart-3:                     var(--chart-3);
+  --color-chart-4:                     var(--chart-4);
+  --color-chart-5:                     var(--chart-5);
+  --radius-sm:                         calc(var(--radius) - 8px);
+  --radius-md:                         calc(var(--radius) - 4px);
+  --radius-lg:                         var(--radius);
+  --radius-xl:                         calc(var(--radius) + 4px);
+  --color-sidebar:                     var(--sidebar);
+  --color-sidebar-foreground:          var(--sidebar-foreground);
+  --color-sidebar-primary:             var(--sidebar-primary);
+  --color-sidebar-primary-foreground:  var(--sidebar-primary-foreground);
+  --color-sidebar-accent:              var(--sidebar-accent);
+  --color-sidebar-accent-foreground:   var(--sidebar-accent-foreground);
+  --color-sidebar-border:              var(--sidebar-border);
+  --color-sidebar-ring:                var(--sidebar-ring);
+}
+
+/* ─── Base Styles ────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  /* Theme-switch cross-fade: everything that paints a background, border,
+     text or icon color animates instead of snapping. Lives in @layer base so
+     any component's own more-specific `transition` (card hover lift, button
+     hovers, chart-hover Cells, Framer Motion transforms) still wins outright
+     — this is only a fallback for the many plain elements styled with inline
+     `color: var(--ink)` etc. that don't declare a transition of their own.
+     SVG shape primitives are included too (safe: the chart-hover Cells and
+     combo-line dots set their own transition via inline `style`, which
+     always beats a stylesheet rule regardless of specificity, so this only
+     ever affects chart chrome — axis lines, grid lines — that has none). */
+  html, body, div, span, p, h1, h2, h3, h4, h5, h6, a, li, dt, dd, td, th, label, button,
+  kbd, aside, nav, header, footer, ul, ol, img, input, textarea, select,
+  svg, text, path, circle, rect, line, polygon, polyline, ellipse, g {
+    transition: var(--theme-transition);
+  }
+
+  html {
+    background-color: var(--background);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-family);
+    font-size: var(--font-size);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+    /* Default to a plain arrow and non-selectable text everywhere — without
+       this, the browser's UA stylesheet shows an I-beam over any selectable
+       text (KPI numbers, headings, card labels), which reads as "editable"
+       on a dashboard where nothing is. Real inputs/textareas/contenteditable
+       opt back into text cursor + selection below. */
+    cursor: default;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Controls that genuinely act on click get the hand cursor. Native
+     <button> defaults to `cursor: default` in every browser, so this isn't
+     redundant with the body rule above — it's the one place buttons need
+     an explicit override. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  label[for],
+  select,
+  summary,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="range"],
+  input[type="file"] {
+    cursor: pointer;
+  }
+
+  /* Genuine text-entry surfaces keep the I-beam and remain selectable. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  textarea,
+  [contenteditable="true"] {
+    cursor: text;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  html {
+    font-size: var(--font-size);
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family);
+    font-weight: 600;
+    color: var(--foreground);
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  h1 { font-size: 28px; }
+  h2 { font-size: 18px; }
+  h3 { font-size: 16px; }
+  h4 { font-size: 14px; }
+
+  label, button {
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-family);
+  }
+
+  /* Minimal scrollbar */
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { background: var(--gold-soft); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+  /* Visible keyboard focus ring throughout */
+  :focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   COMPONENT UTILITIES
+───────────────────────────────────────────────────────────────────────────── */
+
+/* Master card — flat white surface, hairline border, quiet shadow.
+   (Class name kept from a previous glassmorphism pass so every existing
+   consumer — TopNav, Dashboard, DeepDiveLayout, FarmerProfile, ui/card —
+   picks up the new flat look without touching those files.) */
+.glass-card-master {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transform-origin: center;
+  /* Theme-driven properties (incl. box-shadow, since --shadow-card itself
+     changes color between themes) all move on the shared --theme-transition
+     clock; only the hover-lift `transform` keeps its own fast timing. */
+  transition: var(--theme-transition), transform 0.2s ease-out;
+}
+/* !important guards against cards that mount via Framer Motion (KPITile,
+   DataTable) leaving a lingering inline `transform` from their entrance
+   animation — without it, that inline style would silently block the
+   hover scale from ever showing. */
+.glass-card-master:hover {
+  transform: scale(1.008) !important;
+  box-shadow: var(--shadow-card-lift) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-card-master:hover {
+    transform: none !important;
+  }
+}
+
+/* ── CSS hover lift — for plain div cards (not using Framer Motion) ── */
+.card-hover {
+  transition: var(--theme-transition), transform 0.26s ease;
+  cursor: default;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover) !important;
+  border-color: var(--gold-soft) !important;
+}
+
+/* Nav bar surface — flat, matches the card treatment. Its own token
+   (--nav-surface) so dark mode can sit a hair darker than cards. */
+.glass-header-master {
+  background: var(--nav-surface);
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: var(--shadow-nav);
+  transition: var(--theme-transition);
+}
+
+/* ── KPI numeral — tabular numerals, tight tracking, small baseline-aligned unit ── */
+.kpi-number {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-size: 36px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+.kpi-number-unit {
+  font-size: 55%;
+  font-weight: 500;
+  color: var(--ink);
+  opacity: 0.6;
+}
+
+/* ── Eyebrow / section kicker ── */
+.eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.45;
+}
+
+/* ── Table header / cell typography ── */
+.table-header-cell {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--ink);
+  opacity: 0.5;
+}
+.table-cell-numeric {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── DataTable row hover — token-driven so dark mode lightens instead of
+   darkening (was a hardcoded ink-tinted rgba set via JS mouse handlers). ── */
+.data-row-hover {
+  /* border-color (the static row divider) rides the synchronized theme
+     clock; background-color keeps a fast, hover-only speed since it's only
+     ever set on :hover below, not part of the static theme-switch surface. */
+  transition: var(--theme-transition), background-color 0.15s ease;
+}
+.data-row-hover:hover {
+  background: var(--row-hover);
+}
+
+/* KPI metric number */
+.metric-number-gradient {
+  color: var(--ink);
+  font-feature-settings: "tnum";
+}
+
+/* ── Section Chapter Badge ── */
+.badge-chapter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--primary-surface);
+  color: var(--ink-2);
+  border: 1px solid rgba(168, 147, 102, 0.35);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: var(--font-family);
+}
+
+/* ── Status / Info Badge Pill ── */
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  background: var(--primary-surface);
+  color: var(--ink-2);
+  border: 1px solid rgba(168, 147, 102, 0.3);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* ── Gold left accent bar (KPI card decoration) ── */
+.kpi-accent-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: var(--radius-card) 0 0 var(--radius-card);
+  background: var(--gold);
+}
+
+/* ── Card with left accent line ── */
+.card-accent-left {
+  border-left: 3px solid var(--gold) !important;
+}
+
+/* ── Primary button ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--gold);
+  color: var(--ink);
+  border: none;
+  border-radius: var(--radius-btn);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: var(--theme-transition), background-color 0.2s ease;
+}
+.btn-primary:hover {
+  background: var(--gold-soft);
+  box-shadow: 0 4px 12px rgba(168, 147, 102, 0.30);
+}
+
+/* ── Export / outlined button ── */
+.btn-export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  border: 1.5px solid var(--gold);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: var(--theme-transition), background-color 0.2s ease;
+}
+.btn-export:hover {
+  background: var(--primary-surface);
+  color: var(--ink);
+  border-color: var(--ink-2);
+}
+
+/* ── Secondary button ── */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--secondary);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-btn);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: var(--theme-transition), background-color 0.15s ease;
+}
+.btn-secondary:hover {
+  background: var(--hairline);
+  color: var(--ink);
+}
+
+/* ── Search input ── */
+.input-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-input);
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--ink);
+  /* border-color/box-shadow keep the fast focus-ring speed; everything
+     theme-driven rides the synchronized clock. */
+  transition: var(--theme-transition), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input-search:focus-within {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(168, 147, 102, 0.14);
+}
+
+/* ── Insight info box ── */
+.insight-box {
+  background: var(--primary-surface);
+  border: 1px solid rgba(168, 147, 102, 0.35);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* ── Loading spinner ── */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--hairline);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Hide scrollbar (for nav overflow) ── */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Fade-in animation ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* ── Pulsing live-indicator dot ── */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.75); }
+}
+.pulse-dot {
+  animation: pulseDot 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot,
+  .animate-fade-in {
+    animation: none !important;
+  }
+}
