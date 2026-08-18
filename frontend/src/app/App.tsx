@@ -15,15 +15,20 @@ import { ClimateDetailsPage } from "./pages/ClimateDetailsPage";
 import { useAuth } from "./context/AuthContext";
 import { LoginPage } from "./components/LoginPage";
 import { LandingPage } from "./components/Landingpage";
+import { VerifierApp } from "./components/VerifierApp";
+import { RegisterPage } from "./components/RegisterPage";
+import { PendingApprovalPage } from "./components/PendingApprovalPage";
+import { VerifiersPage } from "./pages/VerifiersPage";
+import { RegisteredPage } from "./components/RegisteredPage";
 
 const VALID_PAGES: PageId[] = [
   "overview", "district_map", "yield_nutrition", "identity_admin",
-  "land_details", "fertilizer_method", "climate_details",
+  "land_details", "fertilizer_method", "climate_details", "verifiers",
 ];
 
 export default function App() {
   const { user, loading: authLoading, logout } = useAuth();
-  const [showLogin, setShowLogin] = useState(false);
+  const [screen, setScreen] = useState<"landing" | "login" | "register">("landing");
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -33,7 +38,7 @@ export default function App() {
   // navigation via handleNavigate below (which doesn't remount App) is
   // unaffected and still moves freely between pages.
   const [activePage, setActivePage] = useState<PageId>("overview");
-
+  if (window.location.hash.startsWith("#/registered")) return <RegisteredPage />;
   useEffect(() => {
     if (window.location.hash.replace("#/", "").replace("#", "") !== "overview") {
       window.history.replaceState(null, "", "#/overview");
@@ -69,13 +74,26 @@ export default function App() {
       };
 
   if (authLoading) return null;
+
   if (!user) {
-    return showLogin ? (
-      <LoginPage onBack={() => setShowLogin(false)} />
+    if (screen === "register") {
+      return <RegisterPage onDone={() => setScreen("login")} onBack={() => setScreen("login")} />;
+    }
+    return screen === "login" ? (
+      <LoginPage onBack={() => setScreen("landing")} onRegister={() => setScreen("register")} />
     ) : (
-      <LandingPage onLoginClick={() => setShowLogin(true)} />
+      <LandingPage onLoginClick={() => setScreen("login")} />
     );
   }
+
+  if (user.role === "verifier" && user.status !== "approved") {
+    return <PendingApprovalPage email={user.email} onSignOut={logout} />;
+  }
+
+  if (user.role === "verifier") {
+    return <VerifierApp userName={user.name} onLogout={logout} />;
+  }
+
 
   return (
     <ThemeProvider>
@@ -99,6 +117,7 @@ export default function App() {
               {activePage === "land_details" && <LandDetailsPage onRowClick={setSelectedSurveyId} />}
               {activePage === "fertilizer_method" && <FertilizerMethodPage onRowClick={setSelectedSurveyId} />}
               {activePage === "climate_details" && <ClimateDetailsPage onRowClick={setSelectedSurveyId} />}
+              {activePage === "verifiers" && <VerifiersPage />}
             </motion.div>
           </AnimatePresence>
         </main>

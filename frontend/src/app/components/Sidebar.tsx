@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import {
   LayoutDashboard, MapPinned, FlaskConical, ChartColumn,
-  UsersRound, Layers, CloudSun, Settings2, LogOut,
+  UsersRound, Layers, CloudSun, UserCheck, Settings2, LogOut,
 } from "lucide-react";
 
 export type PageId =
@@ -12,7 +12,8 @@ export type PageId =
   | "identity_admin"
   | "land_details"
   | "fertilizer_method"
-  | "climate_details";
+  | "climate_details"
+  | "verifiers";
 
 const ICON_SIZE = 21;
 const ICON_STROKE = 1.75;
@@ -25,6 +26,7 @@ export const PAGES: { id: PageId; label: string; icon: React.ReactNode; group: s
   { id: "land_details",      label: "Land Details",      icon: <Layers size={ICON_SIZE} strokeWidth={ICON_STROKE} />,          group: "DEEP DIVE" },
   { id: "fertilizer_method", label: "Fertilizer Method", icon: <FlaskConical size={ICON_SIZE} strokeWidth={ICON_STROKE} />,    group: "DEEP DIVE" },
   { id: "climate_details",   label: "Climate Details",   icon: <CloudSun size={ICON_SIZE} strokeWidth={ICON_STROKE} />,        group: "DEEP DIVE" },
+  { id: "verifiers", label: "Verifiers", icon: <UserCheck size={ICON_SIZE} strokeWidth={ICON_STROKE} />, group: "DEEP DIVE" },
 ];
 
 /** Page titles shown in the top bar — mirrors the spec's per-page header copy. */
@@ -36,6 +38,7 @@ export const PAGE_TITLES: Record<PageId, string> = {
   land_details: "Land Detail",
   fertilizer_method: "Fertilizer Method",
   climate_details: "Climate Detail",
+  verifiers: "Verifiers",
 };
 
 const GROUP_ORDER = ["OVERVIEW", "SURVEY ANALYTICS", "DEEP DIVE"];

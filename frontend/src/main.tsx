@@ -1,9 +1,8 @@
-
-  import { createRoot } from "react-dom/client";
-  import App from "./app/App.tsx";
-  import { AuthProvider } from "./app/context/AuthContext";
-  import "./styles/index.css";
-  import dashboardBg from "./assets/dashboard-bg-web.mp4";
+import { createRoot } from "react-dom/client";
+import App from "./app/App.tsx";
+import { AuthProvider } from "./app/context/AuthContext";
+import "./styles/index.css";
+import dashboardBg from "./assets/dashboard-bg-web.mp4";
 
   function preloadVideo(href: string) {
     const link = document.createElement("link");

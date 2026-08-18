@@ -1,19 +1,9 @@
-// Central place for the backend base URL. Change this if you deploy the API
-// somewhere other than localhost later.
-export const API_BASE_URL = "http://127.0.0.1:8000";
+import { supabase } from "../lib/supabaseClient";
 
-const STATIC = false;
-
-async function apiGet<T>(path: string): Promise<T> {
-  const url = STATIC
-    ? `/data/${path.replace(/\/$/, "").split("/").pop()}.json`
-    : `${API_BASE_URL}${path}`;
-  const token = localStorage.getItem("edf_auth_token");
-  const res = await fetch(url, {
-    headers: STATIC || !token ? {} : { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Request failed: ${url} (status ${res.status})`);
-  return res.json();
+async function rpc<T>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
+  const { data, error } = await supabase.rpc(fn, args);
+  if (error) throw new Error(`${fn}: ${error.message}`);
+  return data as T;
 }
 
 export type SummaryStats = {
@@ -30,12 +20,6 @@ export type SummaryStats = {
   pendingAcknowledgementCount: number;
   normalYearPct: number;
   stressedYearPct: number;
-};
-
-export type NitrogenYieldPoint = {
-  n: number;
-  yield: number;
-  name: string;
 };
 
 export type SurveyProfile = {
@@ -66,16 +50,6 @@ export type SurveyProfile = {
   acknowledgedBy: string | null;
 };
 
-export function getSurveyProfile(surveyId: number) {
-  if (STATIC) {
-    return fetch(`/data/surveys/${surveyId}.json`).then((r) => {
-      if (!r.ok) throw new Error(`Profile ${surveyId} not found`);
-      return r.json() as Promise<SurveyProfile>;
-    });
-  }
-  return apiGet<SurveyProfile>(`/api/surveys/${surveyId}/profile`);
-}
-
 export type AnalyticsRow = {
   surveyId: number;
   id: string;
@@ -86,18 +60,6 @@ export type AnalyticsRow = {
   acres: number;
 };
 
-export function getAnalyticsRaw() {
-  return apiGet<AnalyticsRow[]>("/api/dashboard/analytics-raw");
-}
-
-export function getSummary() {
-  return apiGet<SummaryStats>("/api/dashboard/summary");
-}
-
-export function getNitrogenYieldScatter() {
-  return apiGet<NitrogenYieldPoint[]>("/api/dashboard/nitrogen-yield-scatter");
-}
-
 export type YieldPageData = {
   avgYield: number;
   avgN: number;
@@ -106,10 +68,6 @@ export type YieldPageData = {
   scatterData: { acres: number; yield: number; name: string }[];
   records: { surveyId: number; name: string; village: string; acres: number; yield: number; tna: number }[];
 };
-
-export function getYieldPageData() {
-  return apiGet<YieldPageData>("/api/dashboard/yield-page");
-}
 
 export type IdentityPageData = {
   totalFarmers: number;
@@ -130,10 +88,6 @@ export type IdentityPageData = {
   }[];
 };
 
-export function getIdentityPageData() {
-  return apiGet<IdentityPageData>("/api/dashboard/identity-page");
-}
-
 export type LandPageData = {
   totalAcres: number;
   avgPlot: number;
@@ -143,19 +97,12 @@ export type LandPageData = {
   records: { surveyId: number; name: string; village: string; largestPlotAcres: number | null; landAreaHa: number | null }[];
 };
 
-export function getLandPageData() {
-  return apiGet<LandPageData>("/api/dashboard/land-page");
-}
-
 export type FertilizerPageData = {
   fertData: { name: string; value: number }[];
   methData: { name: string; value: number }[];
   avgN: number;
   records: { surveyId: number; name: string; village: string; method: string }[];
 };
-export function getFertilizerPageData() {
-  return apiGet<FertilizerPageData>("/api/dashboard/fertilizer-page");
-}
 
 export type RatoonPageData = {
   rtData: { name: string; value: number }[];
@@ -164,9 +111,6 @@ export type RatoonPageData = {
   pctNext: number;
   records: { surveyId: number; name: string; village: string; crop: string; wishNextRatoon: string }[];
 };
-export function getRatoonPageData() {
-  return apiGet<RatoonPageData>("/api/dashboard/ratoon-page");
-}
 
 export type ClimatePageData = {
   evData: { name: string; value: number }[];
@@ -175,9 +119,6 @@ export type ClimatePageData = {
   topStress: string;
   records: { surveyId: number; name: string; village: string; severeEvents: string; growthStage: string }[];
 };
-export function getClimatePageData() {
-  return apiGet<ClimatePageData>("/api/dashboard/climate-page");
-}
 
 export type LongTailFertPageData = {
   chartData: { name: string; value: number }[];
@@ -185,9 +126,6 @@ export type LongTailFertPageData = {
   usingAny: number;
   records: Record<string, any>[];
 };
-export function getLongTailFertPageData() {
-  return apiGet<LongTailFertPageData>("/api/dashboard/longtail-fertilizer-page");
-}
 
 export type LongTailOrgPageData = {
   chartData: { name: string; value: number }[];
@@ -195,9 +133,6 @@ export type LongTailOrgPageData = {
   vol: number;
   records: { surveyId: number; name: string; vermicompost: number | null; goatSheepManure: number | null; poultryManure: number | null; jeevamrut: number | null }[];
 };
-export function getLongTailOrgPageData() {
-  return apiGet<LongTailOrgPageData>("/api/dashboard/longtail-organic-page");
-}
 
 export type FarmerLocation = {
   surveyId: number;
@@ -211,47 +146,25 @@ export type FarmerLocation = {
   acres: number;
 };
 
-export function getFarmerLocations() {
-  return apiGet<FarmerLocation[]>("/api/dashboard/farmer-locations");
-}
+export const getSummary = () => rpc<SummaryStats>("summary");
+export const getAnalyticsRaw = () => rpc<AnalyticsRow[]>("analytics_raw");
+export const getIdentityPageData = () => rpc<IdentityPageData>("identity_page");
+export const getLandPageData = () => rpc<LandPageData>("land_page");
+export const getYieldPageData = () => rpc<YieldPageData>("yield_page");
+export const getRatoonPageData = () => rpc<RatoonPageData>("ratoon_page");
+export const getFertilizerPageData = () => rpc<FertilizerPageData>("fertilizer_page");
+export const getClimatePageData = () => rpc<ClimatePageData>("climate_page");
+export const getLongTailFertPageData = () => rpc<LongTailFertPageData>("longtail_fertilizer_page");
+export const getLongTailOrgPageData = () => rpc<LongTailOrgPageData>("longtail_organic_page");
+export const getVillageData = () => rpc<any[]>("villages");
+export const getFarmerLocations = () => rpc<FarmerLocation[]>("farmer_locations");
 
-export function getVillageData() {
-  return apiGet<any[]>("/api/dashboard/villages");
-}
+export const getSurveyProfile = (surveyId: number) =>
+  rpc<SurveyProfile>("survey_profile", { p_survey_id: surveyId });
 
-export function getIdentityStats() {
-  return apiGet<any>("/api/dashboard/identity");
-}
-
-export function getFertilizerStats() {
-  return apiGet<any[]>("/api/dashboard/fertilizer");
-}
-
-export function getClimateStats() {
-  return apiGet<any[]>("/api/dashboard/climate");
-}
-
-export function getFarmers() {
-  return apiGet<any[]>("/api/farmers/");
-}
-
-export function getSurveys(params?: { year?: number; village?: string; block?: string; acknowledged?: boolean }) {
-  const qs = params
-    ? "?" + new URLSearchParams(
-        Object.entries(params)
-          .filter(([, v]) => v !== undefined)
-          .map(([k, v]) => [k, String(v)])
-      ).toString()
-    : "";
-  return apiGet<any[]>(`/api/surveys/${qs}`);
-}
-
-export async function acknowledgeSurvey(surveyId: number, acknowledgedBy: string) {
-  const res = await fetch(`${API_BASE_URL}/api/surveys/${surveyId}/acknowledge`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ acknowledged_by: acknowledgedBy }),
+export const getSurveys = (params?: { year?: number; village?: string; block?: string }) =>
+  rpc<any[]>("list_surveys", {
+    p_year: params?.year ?? null,
+    p_village: params?.village ?? null,
+    p_block: params?.block ?? null,
   });
-  if (!res.ok) throw new Error(`Failed to acknowledge survey ${surveyId}`);
-  return res.json();
-}
