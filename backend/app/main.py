@@ -1,12 +1,10 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes.webhook import router as webhook_router
 from app.routes.auth import router as auth_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.api_dashboard import router as api_dashboard_router
 from app.routes.api_surveys import router as api_surveys_router
-from app.routes.api_farmers import router as api_farmers_router
 from app.utils.dependencies import get_current_user
 
 app = FastAPI(
@@ -25,12 +23,6 @@ app.add_middleware(
 )
 
 app.include_router(
-    webhook_router,
-    prefix="/webhook",
-    tags=["Webhook"]
-)
-
-app.include_router(
     auth_router,
     prefix="/auth",
     tags=["Authentication"]
@@ -42,7 +34,7 @@ app.include_router(
 )
 
 # Endpoints consumed by the frontend's src/app/lib/api.ts
-# All three require a valid login token (Authorization: Bearer <token>)
+# All require a valid login token (Authorization: Bearer <token>)
 app.include_router(
     api_dashboard_router,
     prefix="/api/dashboard",
@@ -55,16 +47,10 @@ app.include_router(
     tags=["API - Surveys"],
     dependencies=[Depends(get_current_user)],
 )
-app.include_router(
-    api_farmers_router,
-    prefix="/api/farmers",
-    tags=["API - Farmers"],
-    dependencies=[Depends(get_current_user)],
-)
+
 
 @app.get("/")
 def home():
-
     return {
         "status": "Running",
         "database": "Supabase PostgreSQL"
