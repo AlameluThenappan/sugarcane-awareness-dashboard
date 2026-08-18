@@ -38,7 +38,6 @@ export default function App() {
   // navigation via handleNavigate below (which doesn't remount App) is
   // unaffected and still moves freely between pages.
   const [activePage, setActivePage] = useState<PageId>("overview");
-  if (window.location.hash.startsWith("#/registered")) return <RegisteredPage />;
   useEffect(() => {
     if (window.location.hash.replace("#/", "").replace("#", "") !== "overview") {
       window.history.replaceState(null, "", "#/overview");

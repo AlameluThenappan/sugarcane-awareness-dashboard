@@ -22,20 +22,16 @@ export function RegisterPage({ onDone, onBack }: { onDone: () => void; onBack: (
 
     setSubmitting(true);
     try {
-      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: "D:/Awareness_Dashboard/frontend/src/app/components/RegisteredPage.tsx",
+          data: { username: username.trim(), role: "verifier" },
+          emailRedirectTo: "http://localhost:5173/",
         },
       });
-      if (signUpErr) throw signUpErr;
-      if (!signUpData.user) throw new Error("Registration failed.");
-
-      const { error: regErr } = await supabase.rpc("register_verifier", {
-        p_username: username.trim(),
-      });
-      if (regErr) throw regErr;
+      if (error) throw error;
+      if (!data.user) throw new Error("Registration failed.");
 
       onDone();
     } catch (err: any) {
