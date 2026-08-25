@@ -179,6 +179,8 @@ type Summary = {
   rejectedRows: number;
   duplicateRows: number;
   newRowsInserted: number;
+  surveyRowsProcessed?: number;
+  surveyProcessingError?: string;
 };
 
 Deno.serve(async (req) => {
@@ -307,6 +309,24 @@ Deno.serve(async (req) => {
       `;
       await sql.end();
       return json(500, { error: `Upload failed, nothing was saved: ${message}` });
+    }
+
+    // ---- 5. Promote newly-approved raw rows into survey.* ----------------
+    // The Admin dashboard reads survey.* (via survey.v_survey), not
+    // raw.sugarcane_survey directly, so rows landed above aren't visible
+    // there until this runs. It re-derives its own worklist (any Approved
+    // raw row without a matching survey.surveys.unique_id) rather than
+    // being scoped to just this upload, so it also mops up anything left
+    // over from a previous run that failed partway through. A failure
+    // here must not turn an already-committed raw insert into a reported
+    // failure — surface it in the summary instead of throwing.
+    try {
+      const [{ process_raw_to_survey: processed }] = await sql<{ process_raw_to_survey: number }[]>`
+        select public.process_raw_to_survey()
+      `;
+      summary.surveyRowsProcessed = processed;
+    } catch (processErr) {
+      summary.surveyProcessingError = processErr instanceof Error ? processErr.message : String(processErr);
     }
 
     await sql.end();
