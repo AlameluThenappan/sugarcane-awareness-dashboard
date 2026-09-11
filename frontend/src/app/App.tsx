@@ -28,7 +28,10 @@ const VALID_PAGES: PageId[] = [
 
 export default function App() {
   const { user, loading: authLoading, logout } = useAuth();
-  const [screen, setScreen] = useState<"landing" | "login" | "register">("landing");
+  // Keep the landing page as the startup view even when Supabase restores a
+  // previously signed-in session. The dashboard is entered deliberately from
+  // the landing-page button (or after a successful login).
+  const [screen, setScreen] = useState<"landing" | "login" | "register" | "dashboard">("landing");
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -52,6 +55,10 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, []);
 
+  const handleLogout = useCallback(() => {
+    void logout().finally(() => setScreen("login"));
+  }, [logout]);
+
   // Sync hash changes (browser back/forward buttons)
   useEffect(() => {
     const handleHashChange = () => {
@@ -74,23 +81,40 @@ export default function App() {
 
   if (authLoading) return null;
 
-  if (!user) {
-    if (screen === "register") {
-      return <RegisterPage onDone={() => setScreen("login")} onBack={() => setScreen("login")} />;
-    }
-    return screen === "login" ? (
-      <LoginPage onBack={() => setScreen("landing")} onRegister={() => setScreen("register")} />
-    ) : (
-      <LandingPage onLoginClick={() => setScreen("login")} />
+  if (screen === "landing") {
+    return (
+      <LandingPage
+        onLoginClick={() => {
+          void logout().finally(() => setScreen("login"));
+        }}
+      />
     );
   }
 
+  if (screen === "register") {
+    return <RegisterPage onDone={() => setScreen("login")} onBack={() => setScreen("login")} />;
+  }
+
+  if (screen === "login") {
+    return (
+      <LoginPage
+        onBack={() => setScreen("landing")}
+        onRegister={() => setScreen("register")}
+        onLoginSuccess={() => setScreen("dashboard")}
+      />
+    );
+  }
+
+  if (!user) {
+    return <LandingPage onLoginClick={() => setScreen("login")} />;
+  }
+
   if (user.role === "verifier" && user.status !== "approved") {
-    return <PendingApprovalPage email={user.email} onSignOut={logout} />;
+    return <PendingApprovalPage email={user.email} onSignOut={handleLogout} />;
   }
 
   if (user.role === "verifier") {
-    return <VerifierApp userName={user.name} onLogout={logout} />;
+    return <VerifierApp userName={user.name} onLogout={handleLogout} />;
   }
 
 
@@ -98,7 +122,7 @@ export default function App() {
     <ThemeProvider>
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white">
       {/* Icon rail (desktop) / bottom tab bar (mobile) */}
-      <Sidebar activePage={activePage} onNavigate={handleNavigate} userName={user.name} onLogout={logout} />
+      <Sidebar activePage={activePage} onNavigate={handleNavigate} userName={user.name} onLogout={handleLogout} />
       <BottomTabBar activePage={activePage} onNavigate={handleNavigate} />
 
       <div className="md:pl-16">

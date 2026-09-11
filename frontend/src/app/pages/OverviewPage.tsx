@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Leaf } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
-  ResponsiveContainer, PieChart, Pie,
+  ResponsiveContainer,
 } from "recharts";
 import {
   getSummary, getAnalyticsRaw, getVillageData, getYieldPageData,
   SummaryStats, AnalyticsRow, YieldPageData,
 } from "../lib/api";
 import dashboardBg from "../../assets/dashboard-bg-web.mp4";
-import { KPITile, ChartCard, ChartTooltip, nf, useChartHover, usePieHover } from "./PageKit";
+import { KPITile, ChartCard, ChartTooltip, nf, useChartHover } from "./PageKit";
+import { EfficiencyQuadrants } from "./EfficiencyQuadrants";
 
 const N_THRESHOLD = 130;
 
@@ -41,14 +41,8 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
     [analyticsRows]
   );
 
-  // same source the Yield & Nutrition page uses — 114.6, not summary's 116.3
+  // same source the Yield & Nutrition page uses â€” 114.6, not summary's 116.3
   const yieldSplit = yieldPage?.avgYield ?? 0;
-
-  const topYieldVillages = useMemo(
-    () => (villages ?? []).slice().sort((a, b) => b.yield - a.yield).slice(0, 10)
-      .map((v) => ({ ...v, label: v.village })),
-    [villages]
-  );
 
   const topFarmerVillages = useMemo(
     () => (villages ?? []).slice().sort((a, b) => b.farmers - a.farmers).slice(0, 8),
@@ -73,22 +67,11 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
     return validRows.filter((r) => r.n >= N_THRESHOLD && r.yield < yieldSplit).length;
   }, [validRows, yieldSplit]);
 
-  const ackPct = summary ? Math.round((summary.acknowledgedCount / Math.max(summary.totalSurveys, 1)) * 100) : 0;
-  const ringCircumference = 2 * Math.PI * 42;
-  const ringOffset = ringCircumference * (1 - ackPct / 100);
-
-  const climateData = summary
-    ? [
-        { name: "Normal Year", value: summary.normalYearPct, fill: "var(--sage)" },
-        { name: "Stressed", value: summary.stressedYearPct, fill: "var(--clay-soft)" },
-      ]
-    : [];
-
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const avgNitrogen = Number(summary?.avgNitrogen);
+  const safeAvgNitrogen = Number.isFinite(avgNitrogen) ? avgNitrogen : 0;
 
-  const yieldBars = useChartHover(topYieldVillages.length);
   const farmerBars = useChartHover(topFarmerVillages.length);
-  const climatePie = usePieHover(climateData.map((d) => d.value), climateData.map((d) => d.fill));
 
   return (
     <div className="space-y-4">
@@ -98,7 +81,7 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
           <p className="eyebrow mb-1">OVERVIEW</p>
           <h1 className="text-[26px] font-semibold" style={{ color: "var(--ink)" }}>Overview</h1>
           <p className="text-[13px] mt-1" style={{ color: "var(--ink)", opacity: 0.6 }}>
-            EDF Sugarcane Survey — Erode District, Tamil Nadu
+            EDF Sugarcane Survey â€” Erode District, Tamil Nadu
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -128,51 +111,16 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
         <KPITile value={nf.format(summary?.totalFarmers ?? 0)} label="Total Farmers" delay={0} />
         <KPITile value={nf.format(Math.round(summary?.totalAcres ?? 0))} unit="ac" label="Total Acreage" delay={0.04} />
         <KPITile value={`${summary?.avgYield ?? 0}`} unit="t/ha" label="Average Yield" delay={0.08} />
-        <KPITile value={`${summary?.avgNitrogen ?? 0}`} unit="kg" label="Avg Nitrogen" delay={0.12} />
+        <KPITile value={`${safeAvgNitrogen}`} unit="kg" label="Avg Nitrogen" delay={0.12} />
         <KPITile value={`${summary?.ratoonPct ?? 0}%`} unit="Ratoon" label="Crop Split" delay={0.16} />
         <KPITile value={`${summary?.stressedYearPct ?? 0}%`} unit="Stressed" label="Climate Impact" delay={0.2} />
       </div>
 
-      {/* Acknowledgement + Village Yield Landscape */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="glass-card-master p-5 flex flex-col items-center justify-center">
-          <h3 className="text-[15px] font-semibold self-start mb-2" style={{ color: "var(--ink)" }}>Survey Acknowledgement</h3>
-          <svg width="120" height="120" viewBox="0 0 100 100" className="my-2" role="img" aria-label={`${ackPct}% of surveys acknowledged`}>
-            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--hairline)" strokeWidth="8" />
-            <circle
-              cx="50" cy="50" r="42" fill="none" stroke="var(--sage)" strokeWidth="8" strokeLinecap="round"
-              strokeDasharray={ringCircumference} strokeDashoffset={ringOffset}
-              transform="rotate(-90 50 50)"
-            />
-            <text x="50" y="55" textAnchor="middle" fontSize="20" fontWeight="600" fill="var(--ink)">{ackPct}%</text>
-          </svg>
-          <p className="text-[12px] text-center" style={{ color: "var(--ink)", opacity: 0.6 }}>
-            {summary?.acknowledgedCount ?? 0} of {summary?.totalSurveys ?? 0} surveys acknowledged · {summary?.pendingAcknowledgementCount ?? 0} pending
-          </p>
-          <div className="flex gap-4 mt-3 text-[12px]" style={{ color: "var(--ink)" }}>
-            <span>{summary?.villageCount ?? 0} Villages</span>
-            <span>{summary?.blockCount ?? 0} Blocks</span>
-          </div>
-        </div>
 
-        <ChartCard title="Village Yield Landscape" subtitle="Top 10 villages by average yield" className="lg:col-span-2 h-[300px]">
-          <ResponsiveContainer width="100%" height="100%" debounce={50}>
-            <BarChart data={topYieldVillages} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
-              <CartesianGrid horizontal={false} stroke="var(--hairline)" />
-              <XAxis type="number" tick={{ fill: "var(--ink)", fontSize: 10, opacity: 0.45 }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="label" width={90} tick={{ fill: "var(--ink)", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <ReTooltip content={<ChartTooltip />} cursor={{ fill: "transparent" }} />
-              <Bar dataKey="yield" name="Avg Yield (t/ha)" fill="var(--olive)" radius={[0, 3, 3, 0]} barSize={12}>
-                {yieldBars.cells}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Production Overview + Climate donut */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Production Overview" subtitle="Top villages by farmer count" className="h-[260px]">
+        <EfficiencyQuadrants rows={validRows} yieldSplit={yieldSplit} nSplit={N_THRESHOLD} />
+
+        <ChartCard title="Production Overview" subtitle="Top villages by farmer count" className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%" debounce={50}>
             <BarChart data={topFarmerVillages} margin={{ top: 4, right: 8, left: -20, bottom: 4 }}>
               <CartesianGrid vertical={false} stroke="var(--hairline)" />
@@ -184,27 +132,6 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Climate Impact" subtitle="Share of surveyed years" className="h-[260px]">
-          <div className="h-full flex items-center gap-4">
-            <ResponsiveContainer width="55%" height="100%" debounce={50}>
-              <PieChart>
-                <Pie data={climateData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
-                  {climatePie.cells}
-                </Pie>
-                <ReTooltip content={<ChartTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-2 text-[12px]">
-              {climateData.map((d) => (
-                <div key={d.name} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.fill }} />
-                  <span style={{ color: "var(--ink)" }}>{d.name} {d.value}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </ChartCard>
       </div>
 
@@ -234,7 +161,7 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
           <h3 className="text-[15px] font-semibold mb-0.5" style={{ color: "var(--ink)" }}>Nitrogen Watch</h3>
           <p className="text-[12px] mb-4" style={{ color: "var(--ink)", opacity: 0.55 }}>EDF analytics threshold: {N_THRESHOLD} kg N</p>
           {(() => {
-            const avgN = summary?.avgNitrogen ?? 0;
+            const avgN = safeAvgNitrogen;
             const maxScale = Math.max(N_THRESHOLD * 1.4, avgN * 1.2);
             const pct = Math.min(100, (avgN / maxScale) * 100);
             const thresholdPct = Math.min(100, (N_THRESHOLD / maxScale) * 100);
@@ -257,43 +184,19 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
           })()}
           <div className="flex items-center justify-between mt-3">
             <p className="text-[13px] font-medium" style={{ color: "var(--ink)" }}>
-              {summary?.avgNitrogen ?? 0} kg avg farm
+              {safeAvgNitrogen} kg avg farm
             </p>
             <span
               className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
               style={{
-                color: (summary?.avgNitrogen ?? 0) > N_THRESHOLD ? "var(--clay)" : "var(--sage)",
-                background: (summary?.avgNitrogen ?? 0) > N_THRESHOLD ? "rgba(186,98,84,0.12)" : "rgba(67,112,83,0.12)",
+                color: safeAvgNitrogen > N_THRESHOLD ? "var(--clay)" : "var(--sage)",
+                background: safeAvgNitrogen > N_THRESHOLD ? "rgba(186,98,84,0.12)" : "rgba(67,112,83,0.12)",
               }}
             >
-              {(summary?.avgNitrogen ?? 0) > N_THRESHOLD ? "Above threshold" : "Within threshold"}
+              {safeAvgNitrogen > N_THRESHOLD ? "Above threshold" : "Within threshold"}
             </span>
           </div>
         </div>
-      </div>
-
-      {/* EDF Agronomy insight card */}
-      <div className="rounded-2xl p-6" style={{ background: "var(--surface-emphasis)" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-[11px] uppercase tracking-[0.14em] font-semibold" style={{ color: "var(--gold-soft)" }}>EDF Agronomy</span>
-        </div>
-        <p className="text-[19px] font-medium leading-snug max-w-2xl" style={{ color: "#F5F7F2" }}>
-          {outlierCount ?? "—"} farms apply &gt;{N_THRESHOLD} kg N yet stay under {yieldSplit ? yieldSplit.toFixed(1) : "—"} t/ha. Where should EDF prioritise training?
-        </p>
-        <div className="h-px my-4 max-w-2xl" style={{ background: "rgba(245,247,242,0.15)" }} />
-        <p className="text-[11px] uppercase tracking-[0.1em] font-semibold mb-1.5" style={{ color: "rgba(245,247,242,0.6)" }}>
-          EDF Agronomic Recommendation
-        </p>
-        <p className="text-[14px] leading-relaxed max-w-2xl mb-4" style={{ color: "rgba(245,247,242,0.85)" }}>
-          Prioritize training intervention for the {outlierCount ?? "critical outlier"} farms where nitrogen application is high but crop yields remain depressed.
-        </p>
-        <button
-          onClick={() => (window.location.hash = "#/yield_nutrition")}
-          className="text-[13px] font-medium"
-          style={{ color: "var(--gold-soft)" }}
-        >
-          View analytics →
-        </button>
       </div>
     </div>
   );

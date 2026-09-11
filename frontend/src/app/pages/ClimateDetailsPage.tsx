@@ -1,24 +1,39 @@
 import { useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer } from "recharts";
-import { getClimatePageData, ClimatePageData } from "../lib/api";
+import { BarChart, Bar, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, ResponsiveContainer } from "recharts";
+import { getClimatePageData, getSummary, ClimatePageData, SummaryStats } from "../lib/api";
 import { DataTable } from "../components/DataTable";
-import { PageHeader, KPITile, ChartCard, ChartTooltip, axisTick, useChartHover } from "./PageKit";
+import { PageHeader, KPITile, ChartCard, ChartTooltip, axisTick, useChartHover, usePieHover } from "./PageKit";
 
 type ClimateRecord = { surveyId: number; name: string; village: string; severeEvents: string; growthStage: string };
 
 export function ClimateDetailsPage({ onRowClick }: { onRowClick: (id: number) => void }) {
   const [data, setData] = useState<ClimatePageData | null>(null);
+  const [summary, setSummary] = useState<SummaryStats | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    getClimatePageData().then((d) => { if (!cancelled) setData(d); }).catch(() => {});
+    Promise.all([getClimatePageData(), getSummary()])
+      .then(([climateData, summaryData]) => {
+        if (cancelled) return;
+        setData(climateData);
+        setSummary(summaryData);
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
   const eventBars = useChartHover(data?.evData.length ?? 0);
   const stageBars = useChartHover(data?.stData.length ?? 0);
+  // Kept identical to the former Overview Climate Impact chart: summary percentages and colours.
+  const climateData = summary
+    ? [
+        { name: "Normal Year", value: summary.normalYearPct, fill: "var(--sage)" },
+        { name: "Stressed", value: summary.stressedYearPct, fill: "var(--clay-soft)" },
+      ]
+    : [];
+  const climatePie = usePieHover(climateData.map((d) => d.value), climateData.map((d) => d.fill));
 
-  if (!data) return <div className="p-8" style={{ color: "var(--ink)", opacity: 0.5 }}>Loading climate detail data...</div>;
+  if (!data || !summary) return <div className="p-8" style={{ color: "var(--ink)", opacity: 0.5 }}>Loading climate detail data...</div>;
 
   return (
     <div className="space-y-4">
@@ -34,7 +49,28 @@ export function ClimateDetailsPage({ onRowClick }: { onRowClick: (id: number) =>
         <KPITile value={data.topStress} label="Top Stressor" delay={0.08} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <ChartCard title="Climate Impact" subtitle="Share of surveyed years" className="h-[280px]">
+          <div className="h-full flex items-center gap-4">
+            <ResponsiveContainer width="55%" height="100%" debounce={50}>
+              <PieChart>
+                <Pie data={climateData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={70} paddingAngle={2}>
+                  {climatePie.cells}
+                </Pie>
+                <ReTooltip content={<ChartTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="space-y-2 text-[12px]">
+              {climateData.map((d) => (
+                <div key={d.name} className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.fill }} />
+                  <span style={{ color: "var(--ink)" }}>{d.name} {d.value}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ChartCard>
+
         <ChartCard title="Severe Climate Events" className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%" debounce={50}>
             <BarChart data={data.evData} margin={{ left: -20 }}>

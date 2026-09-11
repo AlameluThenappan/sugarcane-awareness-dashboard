@@ -6,8 +6,8 @@ import { RoleTile } from "./RoleTile";
 type Role = "admin" | "verifier";
 
 export function LoginPage({
-  onBack, onRegister,
-}: { onBack?: () => void; onRegister: () => void }) {
+  onBack, onRegister, onLoginSuccess,
+}: { onBack?: () => void; onRegister: () => void; onLoginSuccess: () => void }) {
   const { login } = useAuth();
   const [role, setRole] = useState<Role | null>(null);
   const [email, setEmail] = useState("");
@@ -21,6 +21,7 @@ export function LoginPage({
     setSubmitting(true);
     try {
       await login(email, password, role ?? "admin");
+      onLoginSuccess();
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
