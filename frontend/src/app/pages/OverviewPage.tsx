@@ -111,7 +111,7 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
         <KPITile value={nf.format(summary?.totalFarmers ?? 0)} label="Total Farmers" delay={0} />
         <KPITile value={nf.format(Math.round(summary?.totalAcres ?? 0))} unit="ac" label="Total Acreage" delay={0.04} />
         <KPITile value={`${summary?.avgYield ?? 0}`} unit="t/ha" label="Average Yield" delay={0.08} />
-        <KPITile value={`${safeAvgNitrogen}`} unit="kg" label="Avg Nitrogen" delay={0.12} />
+        <KPITile value={safeAvgNitrogen.toFixed(2)} unit="kg" label="Avg Nitrogen" delay={0.12} />
         <KPITile value={`${summary?.ratoonPct ?? 0}%`} unit="Ratoon" label="Crop Split" delay={0.16} />
         <KPITile value={`${summary?.stressedYearPct ?? 0}%`} unit="Stressed" label="Climate Impact" delay={0.2} />
       </div>

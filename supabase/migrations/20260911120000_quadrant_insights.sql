@@ -27,7 +27,13 @@ with eligible as (
   join survey.surveys s on s.unique_id = rs.unique_id
   where rs.validation_status = 'Approved'
     and coalesce(rs.yield_tonnes_ha, 0) > 0
-    and coalesce(rs.tna, 0) > 0
+    -- rs.tna is text; nullif(trim(...), '') rejects null/empty before the
+    -- numeric cast, and excluding 'NaN' matters because Postgres numeric
+    -- treats NaN as greater than any other value, so a plain "> 0" check
+    -- on a NaN reading would (wrongly) pass it through as valid.
+    and nullif(trim(rs.tna), '') is not null
+    and rs.tna::numeric <> 'NaN'::numeric
+    and rs.tna::numeric > 0
 ), thresholds as (
   select round(avg(yield_tonnes_ha), 1) as yield_split, 130::numeric as n_threshold
   from eligible
