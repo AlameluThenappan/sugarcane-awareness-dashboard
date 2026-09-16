@@ -49,7 +49,7 @@ export function YieldNutritionPage({ onRowClick }: { onRowClick: (id: number) =>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KPITile value={data.avgYield} unit="t/ha" label="Avg Yield" delay={0} />
-        <KPITile value={data.avgN} unit="kg N" label="Avg TNA" delay={0.04} />
+        <KPITile value={(Number.isFinite(data.avgN) ? data.avgN : 0).toFixed(2)} unit="kg N" label="Avg TNA" delay={0.04} />
         <KPITile value={data.maxYield} unit="t/ha" label="Max Yield Recorded" delay={0.08} />
       </div>
 
