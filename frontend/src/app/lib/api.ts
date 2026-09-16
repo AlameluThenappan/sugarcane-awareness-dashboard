@@ -60,6 +60,48 @@ export type AnalyticsRow = {
   acres: number;
 };
 
+export type QuadrantKey = "eff" | "exc" | "und" | "cri";
+
+export type QuadrantOverview = {
+  yieldSplit: number;
+  nThreshold: number;
+  eligibleFarmers: number;
+  counts: Record<QuadrantKey, number>;
+};
+
+export type QuadrantRecord = {
+  surveyId: number;
+  farmerCode: string;
+  name: string;
+  village: string;
+  block: string;
+  cropType: string | null;
+  largestPlotAcres: number | null;
+  yield: number;
+  nitrogen: number;
+  irrigation: string | null;
+  fertilizerMethod: string | null;
+  organicInputs: string[];
+};
+
+export type QuadrantInsights = {
+  key: QuadrantKey;
+  label: string;
+  yieldSplit: number;
+  nThreshold: number;
+  eligibleFarmers: number;
+  farmerCount: number;
+  avgYield: number;
+  avgNitrogen: number;
+  avgLargestPlotAcres: number | null;
+  organicUsers: number;
+  organicPct: number;
+  dominantIrrigation: { value: string; count: number; pct: number } | null;
+  dominantMethod: { value: string; count: number; pct: number } | null;
+  dominantCropType: { value: string; count: number; pct: number } | null;
+  records: QuadrantRecord[];
+};
+
 export type YieldPageData = {
   avgYield: number;
   avgN: number;
@@ -148,6 +190,9 @@ export type FarmerLocation = {
 
 export const getSummary = () => rpc<SummaryStats>("summary");
 export const getAnalyticsRaw = () => rpc<AnalyticsRow[]>("analytics_raw");
+export const getQuadrantOverview = () => rpc<QuadrantOverview>("quadrant_overview");
+export const getQuadrantInsights = (quadrant: QuadrantKey) =>
+  rpc<QuadrantInsights>("quadrant_insights", { p_quadrant: quadrant });
 export const getIdentityPageData = () => rpc<IdentityPageData>("identity_page");
 export const getLandPageData = () => rpc<LandPageData>("land_page");
 export const getYieldPageData = () => rpc<YieldPageData>("yield_page");

@@ -4,45 +4,50 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import {
-  getSummary, getAnalyticsRaw, getVillageData, getYieldPageData,
-  SummaryStats, AnalyticsRow, YieldPageData,
+  getSummary, getVillageData, getYieldPageData, getQuadrantOverview, getAnalyticsRaw,
+  SummaryStats, YieldPageData, QuadrantKey, QuadrantOverview, AnalyticsRow,
 } from "../lib/api";
 import dashboardBg from "../../assets/dashboard-bg-web.mp4";
 import { KPITile, ChartCard, ChartTooltip, nf, useChartHover } from "./PageKit";
 import { EfficiencyQuadrants } from "./EfficiencyQuadrants";
-
-const N_THRESHOLD = 130;
+import { QuadrantInsightsOverlay } from "../components/QuadrantInsightsOverlay";
+import { fallbackQuadrantOverview } from "../data/quadrantFallback";
 
 type VillageRow = { village: string; block: string; farmers: number; acres: number; yield: number; tna: number };
 
 export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: number) => void }) {
   const [summary, setSummary] = useState<SummaryStats | null>(null);
-  const [analyticsRows, setAnalyticsRows] = useState<AnalyticsRow[] | null>(null);
   const [villages, setVillages] = useState<VillageRow[] | null>(null);
   const [yieldPage, setYieldPage] = useState<YieldPageData | null>(null);
+  const [analyticsRows, setAnalyticsRows] = useState<AnalyticsRow[]>([]);
+  const [quadrantOverview, setQuadrantOverview] = useState<QuadrantOverview | null>(null);
+  const [selectedQuadrant, setSelectedQuadrant] = useState<QuadrantKey | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getSummary(), getAnalyticsRaw(), getVillageData(), getYieldPageData()])
-      .then(([sum, raw, vill, yp]) => {
+    Promise.all([getSummary(), getVillageData(), getYieldPageData(), getAnalyticsRaw()])
+      .then(([sum, vill, yp, analytics]) => {
         if (cancelled) return;
         setSummary(sum);
-        setAnalyticsRows(raw);
         setVillages(vill as VillageRow[]);
         setYieldPage(yp);
+        setAnalyticsRows(analytics);
       })
       .catch(() => {});
+    if (import.meta.env.DEV) {
+      setQuadrantOverview(fallbackQuadrantOverview());
+    } else {
+      getQuadrantOverview()
+        .then((quadrantData) => { if (!cancelled) setQuadrantOverview(quadrantData); })
+        .catch(() => { if (!cancelled) setQuadrantOverview(fallbackQuadrantOverview()); });
+    }
     return () => { cancelled = true; };
   }, []);
 
   // same filter the Yield & Nutrition page applies
-  const validRows = useMemo(
-    () => (analyticsRows ?? []).filter((r) => (r.yield || 0) > 0 && (r.n || 0) > 0),
-    [analyticsRows]
-  );
-
   // same source the Yield & Nutrition page uses â€” 114.6, not summary's 116.3
-  const yieldSplit = yieldPage?.avgYield ?? 0;
+  const yieldSplit = quadrantOverview?.yieldSplit ?? yieldPage?.avgYield ?? 0;
+  const nThreshold = quadrantOverview?.nThreshold ?? 130;
 
   const topFarmerVillages = useMemo(
     () => (villages ?? []).slice().sort((a, b) => b.farmers - a.farmers).slice(0, 8),
@@ -62,11 +67,6 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
   }, [villages]);
 
   // matches the CRITICAL OUTLIERS quadrant: same rows, same split, same >= on nitrogen
-  const outlierCount = useMemo(() => {
-    if (!validRows.length || !yieldSplit) return null;
-    return validRows.filter((r) => r.n >= N_THRESHOLD && r.yield < yieldSplit).length;
-  }, [validRows, yieldSplit]);
-
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const avgNitrogen = Number(summary?.avgNitrogen);
   const safeAvgNitrogen = Number.isFinite(avgNitrogen) ? avgNitrogen : 0;
@@ -118,7 +118,12 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <EfficiencyQuadrants rows={validRows} yieldSplit={yieldSplit} nSplit={N_THRESHOLD} />
+        <EfficiencyQuadrants
+          overview={quadrantOverview}
+          fallbackRows={analyticsRows}
+          fallbackYieldSplit={yieldPage?.avgYield ?? 0}
+          onSelect={setSelectedQuadrant}
+        />
 
         <ChartCard title="Production Overview" subtitle="Top villages by farmer count" className="h-[280px]">
           <ResponsiveContainer width="100%" height="100%" debounce={50}>
@@ -159,13 +164,13 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
 
         <div className="glass-card-master p-5">
           <h3 className="text-[15px] font-semibold mb-0.5" style={{ color: "var(--ink)" }}>Nitrogen Watch</h3>
-          <p className="text-[12px] mb-4" style={{ color: "var(--ink)", opacity: 0.55 }}>EDF analytics threshold: {N_THRESHOLD} kg N</p>
+          <p className="text-[12px] mb-4" style={{ color: "var(--ink)", opacity: 0.55 }}>EDF analytics threshold: {nThreshold} kg N</p>
           {(() => {
             const avgN = safeAvgNitrogen;
-            const maxScale = Math.max(N_THRESHOLD * 1.4, avgN * 1.2);
+            const maxScale = Math.max(nThreshold * 1.4, avgN * 1.2);
             const pct = Math.min(100, (avgN / maxScale) * 100);
-            const thresholdPct = Math.min(100, (N_THRESHOLD / maxScale) * 100);
-            const overThreshold = avgN > N_THRESHOLD;
+            const thresholdPct = Math.min(100, (nThreshold / maxScale) * 100);
+            const overThreshold = avgN > nThreshold;
             return (
               <div className="relative h-3 rounded-full mt-6 mb-2" style={{ background: "var(--hairline)" }}>
                 <div
@@ -176,7 +181,7 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
                   className="absolute -top-5 flex flex-col items-center"
                   style={{ left: `${thresholdPct}%`, transform: "translateX(-50%)" }}
                 >
-                  <span className="text-[10px] font-semibold" style={{ color: "var(--ink)", opacity: 0.6 }}>{N_THRESHOLD}</span>
+                  <span className="text-[10px] font-semibold" style={{ color: "var(--ink)", opacity: 0.6 }}>{nThreshold}</span>
                   <span className="w-px h-3" style={{ background: "var(--ink)", opacity: 0.3 }} />
                 </div>
               </div>
@@ -189,15 +194,23 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
             <span
               className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
               style={{
-                color: safeAvgNitrogen > N_THRESHOLD ? "var(--clay)" : "var(--sage)",
-                background: safeAvgNitrogen > N_THRESHOLD ? "rgba(186,98,84,0.12)" : "rgba(67,112,83,0.12)",
+                color: safeAvgNitrogen > nThreshold ? "var(--clay)" : "var(--sage)",
+                background: safeAvgNitrogen > nThreshold ? "rgba(186,98,84,0.12)" : "rgba(67,112,83,0.12)",
               }}
             >
-              {safeAvgNitrogen > N_THRESHOLD ? "Above threshold" : "Within threshold"}
+              {safeAvgNitrogen > nThreshold ? "Above threshold" : "Within threshold"}
             </span>
           </div>
         </div>
       </div>
+
+      {selectedQuadrant && (
+        <QuadrantInsightsOverlay
+          quadrant={selectedQuadrant}
+          onClose={() => setSelectedQuadrant(null)}
+          onSelectFarmer={onSelectFarmer}
+        />
+      )}
     </div>
   );
 }
