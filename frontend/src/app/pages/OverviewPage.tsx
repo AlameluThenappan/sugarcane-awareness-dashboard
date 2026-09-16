@@ -34,7 +34,7 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
         setAnalyticsRows(analytics);
       })
       .catch(() => {});
-    if (import.meta.env.DEV) {
+    if ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV) {
       setQuadrantOverview(fallbackQuadrantOverview());
     } else {
       getQuadrantOverview()
