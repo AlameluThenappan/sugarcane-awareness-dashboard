@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getQuadrantInsights, QuadrantInsights, QuadrantKey, QuadrantRecord } from "../lib/api";
+import { getQuadrantInsights, QuadrantComparison, QuadrantInsights, QuadrantKey, QuadrantRecord } from "../lib/api";
 import { DataTable } from "./DataTable";
 import { KPITile } from "../pages/PageKit";
 import { fallbackQuadrantInsights } from "../data/quadrantFallback";
@@ -20,6 +20,65 @@ function delta(value: number, benchmark: number, unit: string) {
   return `${value >= benchmark ? "+" : "−"}${amount} ${unit} vs threshold`;
 }
 
+// Appends "vs X-Y{unit} elsewhere" to a KPITile label only when the backend
+// (public.quadrant_insights' comparisons object) says this factor actually
+// clears the meaningfully-differs bar for this quadrant. When it doesn't,
+// the tile still shows the plain value — reporting the number is fine, it's
+// the *comparison claim* that's gated, per the "only present a factor as a
+// distinguishing insight if it meaningfully differs" rule.
+function comparisonSuffix(comp: QuadrantComparison | undefined, unit: string) {
+  if (!comp?.meaningfullyDiffers || comp.othersMin == null || comp.othersMax == null) return "";
+  const range = comp.othersMin === comp.othersMax ? `${comp.othersMin}${unit}` : `${comp.othersMin}-${comp.othersMax}${unit}`;
+  return ` · vs ${range} elsewhere`;
+}
+
+// Picks the single "leading" explanatory factor for the summary sentence:
+// among factors that pass meaningfullyDiffers, the one with the largest
+// *relative* gap from the nearest edge of the other three quadrants' range
+// (relative, not absolute, so a percentage factor and an acres factor can
+// be ranked on the same scale).
+function relativeGap(comp: QuadrantComparison): number {
+  const hasNumericBasis = typeof comp.pct === "number" || typeof comp.value === "number";
+  if (!comp.meaningfullyDiffers || comp.othersMin == null || comp.othersMax == null || !hasNumericBasis) return 0;
+  const value = typeof comp.pct === "number" ? comp.pct : (comp.value as number);
+  const edge = value > comp.othersMax ? comp.othersMax : comp.othersMin;
+  const gap = Math.abs(value - edge);
+  return edge === 0 ? Infinity : gap / edge;
+}
+
+function summarySentence(label: string, data: QuadrantInsights): string {
+  const factors: { key: keyof QuadrantInsights["comparisons"]; comp: QuadrantComparison }[] = [
+    { key: "irrigation", comp: data.comparisons.irrigation },
+    { key: "fertilizerMethod", comp: data.comparisons.fertilizerMethod },
+    { key: "plotSize", comp: data.comparisons.plotSize },
+    { key: "organicAdoption", comp: data.comparisons.organicAdoption },
+    { key: "ratoonShare", comp: data.comparisons.ratoonShare },
+  ].filter((f) => f.comp.meaningfullyDiffers);
+
+  if (factors.length === 0) {
+    return `${label} farmers don't show a single practice that clearly sets them apart from the other three groups — irrigation, fertilizer method, plot size, and organic adoption all fall within the same range as everyone else.`;
+  }
+
+  const leading = factors.reduce((best, f) => (relativeGap(f.comp) > relativeGap(best.comp) ? f : best));
+  const c = leading.comp;
+  const range = c.othersMin === c.othersMax ? `${c.othersMin}` : `${c.othersMin}-${c.othersMax}`;
+
+  switch (leading.key) {
+    case "irrigation":
+      return `${label} farmers are distinguished primarily by ${readable(c.value as string).toLowerCase()} — used by ${c.pct}% of this group compared to ${range}% in the other three groups.`;
+    case "fertilizerMethod":
+      return `${label} farmers are distinguished primarily by their fertilizer application method — ${readable(c.value as string)} is used by ${c.pct}% of this group compared to ${range}% in the other three groups.`;
+    case "plotSize":
+      return `${label} farmers are distinguished primarily by plot size — averaging ${c.value} acres compared to ${range} acres in the other three groups.`;
+    case "organicAdoption":
+      return `${label} farmers are distinguished primarily by organic input adoption — ${c.value}% of this group use organic inputs, compared to ${range}% in the other three groups.`;
+    case "ratoonShare":
+      return `${label} farmers are distinguished primarily by their crop mix — ${readable(c.value as string)} accounts for ${c.pct}% of this group compared to ${range}% in the other three groups.`;
+    default:
+      return "";
+  }
+}
+
 export function QuadrantInsightsOverlay({
   quadrant,
   onClose,
@@ -37,12 +96,11 @@ export function QuadrantInsightsOverlay({
     let cancelled = false;
     setData(null);
     setError(false);
-    // The local dashboard ships the approved survey export, so development
-    // remains usable before the corresponding Supabase migration is applied.
-    if (import.meta.env.DEV) {
-      setData(fallbackQuadrantInsights(quadrant));
-      return () => { cancelled = true; };
-    }
+    // Always try the live shared-classification RPC first — in dev and in
+    // prod alike — falling back to the bundled static snapshot only if
+    // it's genuinely unreachable. A dev-only fallback here previously made
+    // this overlay show a different (stale, pre-backfill) farmer count
+    // than the always-live Overview card, for every quadrant.
     getQuadrantInsights(quadrant)
       .then((result) => { if (!cancelled) setData(result); })
       .catch(() => { if (!cancelled) setData(fallbackQuadrantInsights(quadrant)); });
@@ -80,17 +138,30 @@ export function QuadrantInsightsOverlay({
 
         {data && <>
           <p className="text-[12px] text-muted-foreground">Yield split {data.yieldSplit.toFixed(1)} t/ha · Nitrogen threshold {data.nThreshold} kg N/ha{data.farmerCount < 15 ? " · Small cohort: interpret patterns directionally." : ""}</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4">
             <KPITile value={data.farmerCount} label={`Farms (${Math.round(data.farmerCount / data.eligibleFarmers * 100)}% of eligible)`} />
             <KPITile value={data.avgYield.toFixed(1)} unit="t/ha" label={`Avg yield · ${delta(data.avgYield, data.yieldSplit, "t/ha")}`} />
             <KPITile value={data.avgNitrogen.toFixed(1)} unit="kg" label={`Avg nitrogen · ${delta(data.avgNitrogen, data.nThreshold, "kg")}`} />
-            <KPITile value={data.avgLargestPlotAcres?.toFixed(2) ?? "—"} unit="ac" label="Avg largest plot" />
-            <KPITile value={readable(data.dominantIrrigation?.value)} label={`Top irrigation${data.dominantIrrigation ? ` · ${data.dominantIrrigation.pct}%` : ""}`} />
-            <KPITile value={readable(data.dominantMethod?.value)} label={`Top application${data.dominantMethod ? ` · ${data.dominantMethod.pct}%` : ""}`} />
+            <KPITile
+              value={data.avgLargestPlotAcres?.toFixed(2) ?? "—"}
+              unit="ac"
+              label={`Avg largest plot${comparisonSuffix(data.comparisons.plotSize, "ac")}`}
+            />
+            <KPITile
+              value={readable(data.dominantIrrigation?.value)}
+              label={`Top irrigation${data.dominantIrrigation ? ` · ${data.dominantIrrigation.pct}%` : ""}${comparisonSuffix(data.comparisons.irrigation, "%")}`}
+            />
+            <KPITile
+              value={readable(data.dominantMethod?.value)}
+              label={`Top application${data.dominantMethod ? ` · ${data.dominantMethod.pct}%` : ""}${comparisonSuffix(data.comparisons.fertilizerMethod, "%")}`}
+            />
+            <KPITile
+              value={`${data.organicPct}%`}
+              label={`Organic adoption${comparisonSuffix(data.comparisons.organicAdoption, "%")}`}
+            />
           </div>
           <div className="rounded-xl px-4 py-3 text-[12px]" style={{ background: "var(--secondary)", color: "var(--ink)" }}>
-            <strong>{data.dominantCropType ? `${readable(data.dominantCropType.value)} is the dominant crop type (${data.dominantCropType.pct}%).` : "Crop type is not recorded."}</strong>{" "}
-            {data.organicUsers} farmers ({data.organicPct}%) reported at least one organic input.
+            {summarySentence(meta.label, data)}
           </div>
           <DataTable<QuadrantRecord>
             title={`${meta.label} Farmers`}

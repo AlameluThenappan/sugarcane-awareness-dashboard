@@ -34,13 +34,15 @@ export function OverviewPage({ onSelectFarmer }: { onSelectFarmer: (surveyId: nu
         setAnalyticsRows(analytics);
       })
       .catch(() => {});
-    if ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV) {
-      setQuadrantOverview(fallbackQuadrantOverview());
-    } else {
-      getQuadrantOverview()
-        .then((quadrantData) => { if (!cancelled) setQuadrantOverview(quadrantData); })
-        .catch(() => { if (!cancelled) setQuadrantOverview(fallbackQuadrantOverview()); });
-    }
+    // Always try the live shared-classification RPC first, in both dev and
+    // prod — falling back to the bundled static snapshot only if it's
+    // genuinely unreachable. A DEV-only fallback here previously showed a
+    // different (stale, pre-backfill) farmer count than the always-live
+    // outside card, and that drift is exactly what the shared
+    // quadrant_classification source was built to prevent.
+    getQuadrantOverview()
+      .then((quadrantData) => { if (!cancelled) setQuadrantOverview(quadrantData); })
+      .catch(() => { if (!cancelled) setQuadrantOverview(fallbackQuadrantOverview()); });
     return () => { cancelled = true; };
   }, []);
 

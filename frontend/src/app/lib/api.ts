@@ -100,6 +100,28 @@ export type QuadrantInsights = {
   dominantMethod: { value: string; count: number; pct: number } | null;
   dominantCropType: { value: string; count: number; pct: number } | null;
   records: QuadrantRecord[];
+  comparisons: QuadrantComparisons;
+};
+
+// Comparison against the OTHER three quadrants for one factor. `value`/`pct`
+// describe this quadrant; othersMin/othersMax is the range of that same
+// metric across the other three. meaningfullyDiffers is computed server-side
+// (not re-derived in the UI) so the pass/fail call always matches the numbers.
+export type QuadrantComparison = {
+  factor: string;
+  value: string | number | null;
+  pct?: number | null;
+  othersMin: number | null;
+  othersMax: number | null;
+  meaningfullyDiffers: boolean;
+};
+
+export type QuadrantComparisons = {
+  irrigation: QuadrantComparison;
+  fertilizerMethod: QuadrantComparison;
+  plotSize: QuadrantComparison;
+  organicAdoption: QuadrantComparison;
+  ratoonShare: QuadrantComparison;
 };
 
 export type YieldPageData = {

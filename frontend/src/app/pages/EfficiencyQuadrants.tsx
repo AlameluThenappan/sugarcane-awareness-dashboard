@@ -13,18 +13,22 @@ export function EfficiencyQuadrants({ overview, fallbackRows, fallbackYieldSplit
   fallbackYieldSplit: number;
   onSelect: (key: QuadrantKey) => void;
 }) {
-  // The Overview card is defined by the same complete analytics population
-  // it used before the quadrant drill-down was added.
   const nSplit = 130;
-  const fallbackCounts = fallbackRows.reduce<Record<QuadrantKey, number>>((counts, row) => {
-    if (row.yield <= 0 || row.n <= 0 || !fallbackYieldSplit) return counts;
+  // overview.counts comes straight from quadrant_overview(), which
+  // classifies off the same public.quadrant_classification view the
+  // drill-down overlay's quadrant_insights() reads — the single shared
+  // source both features are meant to agree with. Only recompute locally
+  // (a second, independent classification) when that RPC is unreachable
+  // and overview is genuinely null — never as the default path, or this
+  // card can silently drift from the overlay again.
+  const counts = overview?.counts ?? fallbackRows.reduce<Record<QuadrantKey, number>>((acc, row) => {
+    if (row.yield <= 0 || row.n <= 0 || !fallbackYieldSplit) return acc;
     const key: QuadrantKey = row.yield >= fallbackYieldSplit
       ? row.n >= nSplit ? "exc" : "eff"
       : row.n >= nSplit ? "cri" : "und";
-    counts[key] += 1;
-    return counts;
+    acc[key] += 1;
+    return acc;
   }, { eff: 0, exc: 0, und: 0, cri: 0 });
-  const counts = fallbackCounts;
 
   return (
     <div className="glass-card-master p-4 h-[280px] flex flex-col">
