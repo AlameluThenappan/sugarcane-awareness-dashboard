@@ -207,23 +207,34 @@ Deno.serve(async (req) => {
       return json(403, { error: "Only approved verifiers can upload exports." });
     }
 
-    // ---- 3. Read the uploaded file --------------------------------------
-    const form = await req.formData().catch(() => null);
-    const file = form?.get("file");
-    if (!(file instanceof File)) {
-      await sql.end();
-      return json(400, { error: "Expected multipart/form-data with a 'file' field." });
-    }
-    const filename = file.name;
-
-    let rawRows: Record<string, unknown>[];
+    // ---- 3. Read the payload --------------------------------------
+    // We now accept JSON from the frontend to bypass Edge Function memory limits (546).
+    const contentType = req.headers.get("content-type") || "";
+    let filename = "unknown_upload.xlsx";
+    let rawRows: Record<string, unknown>[] = [];
+    
     try {
-      const buf = new Uint8Array(await file.arrayBuffer());
-      const workbook = XLSX.read(buf, { type: "array", cellDates: true, raw: true });
-      const sheet = workbook.Sheets["Sheet1"];
-      if (!sheet) throw new Error('Sheet "Sheet1" not found in workbook.');
-      rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
-      if (rawRows.length === 0) throw new Error("Sheet1 has no data rows.");
+      if (contentType.includes("application/json")) {
+        const body = await req.json();
+        filename = body.filename || filename;
+        rawRows = body.rawRows || [];
+      } else {
+        // Fallback for multipart/form-data if old clients still call it
+        const form = await req.formData().catch(() => null);
+        const file = form?.get("file");
+        if (!(file instanceof File)) {
+          throw new Error("Expected multipart/form-data with a 'file' field or application/json payload.");
+        }
+        filename = file.name;
+        
+        const buf = new Uint8Array(await file.arrayBuffer());
+        const workbook = XLSX.read(buf, { type: "array", cellDates: true, raw: true });
+        const sheet = workbook.Sheets["Sheet1"];
+        if (!sheet) throw new Error('Sheet "Sheet1" not found in workbook.');
+        rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
+      }
+
+      if (rawRows.length === 0) throw new Error("File has no data rows.");
       const headers = Object.keys(rawRows[0]);
       if (!headers.includes("uniqueID") || !headers.includes("_validation_status")) {
         throw new Error("Missing required column(s): uniqueID and/or _validation_status.");
@@ -251,6 +262,9 @@ Deno.serve(async (req) => {
 
     try {
       await sql.begin(async (tx) => {
+        const rowsToInsert: Record<string, unknown>[] = [];
+        const seenIds = new Set<string>();
+
         for (const raw of rawRows) {
           const mapped = mapRow(raw);
 
@@ -268,6 +282,13 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          const uniqueIdStr = String(mapped.unique_id);
+          if (seenIds.has(uniqueIdStr)) {
+            summary.duplicateRows++;
+            continue;
+          }
+          seenIds.add(uniqueIdStr);
+
           const row = {
             ...mapped,
             source: "verifier_upload",
@@ -275,20 +296,20 @@ Deno.serve(async (req) => {
             created_at: new Date(),
             updated_at: new Date(),
           };
+          rowsToInsert.push(row);
+        }
 
-          // ON CONFLICT DO NOTHING here also absorbs duplicate unique_ids that
-          // appear more than once within the same uploaded file: each insert
-          // runs as its own statement inside this transaction, so a row
-          // inserted earlier in this same loop is already visible to the
-          // next ON CONFLICT check.
+        // Batch inserts to avoid timeout and parameter limits
+        const CHUNK_SIZE = 500;
+        for (let i = 0; i < rowsToInsert.length; i += CHUNK_SIZE) {
+          const chunk = rowsToInsert.slice(i, i + CHUNK_SIZE);
           const inserted = await tx`
-            insert into raw.sugarcane_survey ${tx(row, ...INSERT_COLUMNS)}
+            insert into raw.sugarcane_survey ${tx(chunk, ...INSERT_COLUMNS as any)}
             on conflict (unique_id) do nothing
             returning unique_id
           `;
-
-          if (inserted.length > 0) summary.newRowsInserted++;
-          else summary.duplicateRows++;
+          summary.newRowsInserted += inserted.length;
+          summary.duplicateRows += (chunk.length - inserted.length);
         }
 
         await tx`

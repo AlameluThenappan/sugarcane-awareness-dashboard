@@ -22,6 +22,7 @@ type UploadSummary = {
   rejectedRows: number;
   duplicateRows: number;
   newRowsInserted: number;
+  surveyProcessingError?: string;
 };
 
 // FunctionsHttpError only carries the raw Response in `context` — the
@@ -72,11 +73,27 @@ const load = () => {
   const handleFile = async (file: File) => {
     setBusy(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      // Parse Excel file in the browser to avoid edge function memory limits (546)
+      const buf = await file.arrayBuffer();
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.read(buf, { type: "array", cellDates: true, raw: true });
+      const sheet = workbook.Sheets["Sheet1"];
+      if (!sheet) throw new Error('Sheet "Sheet1" not found in workbook.');
+      
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
+      if (rawRows.length === 0) throw new Error("Sheet1 has no data rows.");
+      
+      const payload = {
+        filename: file.name,
+        rawRows
+      };
+
       const { data, error: fnError } = await supabase.functions.invoke<UploadSummary>(
         "upload-verifier-export",
-        { body: formData },
+        { 
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" }
+        },
       );
       if (fnError) throw fnError;
       if (!data) throw new Error("No response from server.");
@@ -89,6 +106,10 @@ const load = () => {
         notApproved: data.rejectedRows,
         newRecords: data.newRowsInserted,
       });
+
+      if (data.surveyProcessingError) {
+        setError({ filename: file.name, errors: ["Data saved, but failed to promote to dashboard: " + data.surveyProcessingError] });
+      }
     } catch (err) {
       setDropzoneOpen(false);
       setError({ filename: file.name, errors: [await describeUploadError(err)] });

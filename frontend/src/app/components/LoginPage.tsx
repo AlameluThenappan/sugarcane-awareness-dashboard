@@ -14,16 +14,25 @@ export function LoginPage({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showRoleError, setShowRoleError] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!role) {
+      setShowRoleError(true);
+      return;
+    }
     setSubmitting(true);
     try {
-      await login(email, password, role ?? "admin");
+      await login(email, password, role);
       onLoginSuccess();
     } catch (err: any) {
-      setError(err.message || "Login failed");
+      let msg = err.message || "Login failed";
+      if (msg.toLowerCase().includes("invalid login credentials")) {
+        msg = "Username or password looks not enrolled. Please check your credentials.";
+      }
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -60,12 +69,19 @@ export function LoginPage({
           style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", backdropFilter: "blur(16px)" }}
         >
           <div>
-            <label className="text-[10px] font-semibold uppercase tracking-widest text-white/50 mb-2 block">
-              Select user type
-            </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              <RoleTile role="admin" label="Admin" hint="Analytics dashboard" active={role === "admin"} onClick={() => setRole("admin")} />
-              <RoleTile role="verifier" label="Verifier" hint="Upload verified data" active={role === "verifier"} onClick={() => setRole("verifier")} />
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[10px] font-semibold uppercase tracking-widest text-white/50 block">
+                Select user type
+              </label>
+              {showRoleError && (
+                <span className="text-[13px] font-semibold text-rose-300 animate-fade-in">
+                  Please select a role
+                </span>
+              )}
+            </div>
+            <div className={`grid grid-cols-2 gap-2.5 rounded-xl transition-all ${showRoleError ? "ring-2 ring-rose-500/50 ring-offset-2 ring-offset-[#1A2013]" : ""}`}>
+              <RoleTile role="admin" label="Admin" hint="Analytics dashboard" active={role === "admin"} onClick={() => { setRole("admin"); setShowRoleError(false); }} />
+              <RoleTile role="verifier" label="Verifier" hint="Upload verified data" active={role === "verifier"} onClick={() => { setRole("verifier"); setShowRoleError(false); }} />
             </div>
           </div>
 
@@ -92,8 +108,8 @@ export function LoginPage({
           )}
 
           <button
-            type="submit" disabled={submitting || !role}
-            className="w-full flex items-center justify-center gap-2 font-semibold text-sm rounded-full py-3 mt-2 disabled:opacity-60"
+            type="submit" disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 font-semibold text-sm rounded-full py-3 mt-2 disabled:opacity-60 transition-colors"
             style={{ background: "#DBC593", color: "#1A2013" }}
           >
             {submitting ? <><Loader2 size={16} className="animate-spin" /> Signing in...</> : <>Sign In <ArrowRight size={15} /></>}

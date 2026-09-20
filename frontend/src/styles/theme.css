@@ -4,9 +4,6 @@
    olive/gold/clay/sage/steel chart series. Flat, quiet — no glassmorphism,
    no heavy shadows, no gradients on interactive elements.
 ───────────────────────────────────────────────────────────────────────────── */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 @custom-variant dark (&:is(.dark *));
 
 :root {

@@ -82,6 +82,7 @@ export type QuadrantRecord = {
   irrigation: string | null;
   fertilizerMethod: string | null;
   organicInputs: string[];
+  fertilizers: Record<string, number>;
 };
 
 export type QuadrantInsights = {
@@ -228,6 +229,9 @@ export const getFarmerLocations = () => rpc<FarmerLocation[]>("farmer_locations"
 
 export const getSurveyProfile = (surveyId: number) =>
   rpc<SurveyProfile>("survey_profile", { p_survey_id: surveyId });
+
+export const getRawSurveyProfile = (surveyId: number) =>
+  rpc<Record<string, any>>("get_raw_survey_profile", { p_survey_id: surveyId });
 
 export const getSurveys = (params?: { year?: number; village?: string; block?: string }) =>
   rpc<any[]>("list_surveys", {

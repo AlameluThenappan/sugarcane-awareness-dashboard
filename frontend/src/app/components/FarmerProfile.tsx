@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getSurveyProfile, SurveyProfile } from "../lib/api";
+import { getSurveyProfile, getRawSurveyProfile, SurveyProfile } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
 function ProfileCard({ children, className = "", title }: { children: React.ReactNode; className?: string; title?: string }) {
@@ -21,6 +21,18 @@ export function FarmerProfile({ surveyId, onClose }: { surveyId: number; onClose
   const [p, setP] = useState<SurveyProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [showRawData, setShowRawData] = useState(false);
+  const [rawData, setRawData] = useState<Record<string, any> | null>(null);
+  const [rawLoading, setRawLoading] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,19 +53,48 @@ export function FarmerProfile({ surveyId, onClose }: { surveyId: number; onClose
     };
   }, [surveyId]);
 
+  const loadRawData = async () => {
+    setShowRawData(!showRawData);
+    if (!showRawData && !rawData) {
+      setRawLoading(true);
+      try {
+        const data = await getRawSurveyProfile(surveyId);
+        setRawData(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setRawLoading(false);
+      }
+    }
+  };
+
   const fertEntries = p?.fertilizerUsage ? Object.entries(p.fertilizerUsage).filter(([, v]) => Number(v) > 0) : [];
   const orgEntries = p?.organicUsage ? Object.entries(p.organicUsage).filter(([, v]) => Number(v) > 0) : [];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto p-4 md:p-8 bg-black/50 backdrop-blur-sm flex items-center justify-center font-sans">
-      <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto p-4 md:p-8 bg-black/50 backdrop-blur-sm flex items-center justify-center font-sans"
+      onClick={onClose}
+    >
+      <div 
+        className={`bg-background border border-border shadow-2xl rounded-3xl w-full transition-all duration-300 max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6 ${showRawData ? 'max-w-[1400px]' : 'max-w-4xl'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-muted px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer"
-          >
-            <span className="text-sm leading-none" aria-hidden="true">←</span> Back to Dashboard
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-muted px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <span className="text-sm leading-none" aria-hidden="true">←</span> Back to Dashboard
+            </button>
+            <button
+               onClick={loadRawData}
+               className="flex items-center gap-2 text-primary-foreground hover:bg-primary-surface border border-hairline px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer"
+            >
+               {showRawData ? "Hide Full Raw Data" : "View Full Raw Data"}
+            </button>
+          </div>
           {p?.acknowledged && (
             <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50 px-3 py-1 rounded-full text-xs font-semibold">
               <span className="text-emerald-600 dark:text-emerald-400 font-bold leading-none" aria-hidden="true">✓</span>
@@ -61,6 +102,9 @@ export function FarmerProfile({ surveyId, onClose }: { surveyId: number; onClose
             </div>
           )}
         </div>
+
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          <div className="flex-1 space-y-6 w-full lg:w-auto">
 
         {loading && (
           <div className="py-12 text-center text-muted-foreground text-sm font-medium">
@@ -226,6 +270,40 @@ export function FarmerProfile({ surveyId, onClose }: { surveyId: number; onClose
             </ProfileCard>
           </>
         )}
+          </div>
+          
+          {/* Raw Data Sidebar */}
+          {showRawData && (
+            <div className="w-full lg:w-[450px] shrink-0 border border-border rounded-2xl bg-muted/20 overflow-hidden flex flex-col max-h-[75vh]">
+               <div className="px-5 py-3.5 border-b border-border bg-muted/40">
+                 <h3 className="font-semibold text-foreground font-outfit text-sm tracking-wide">Raw Survey Data</h3>
+                 <p className="text-[11px] text-muted-foreground mt-0.5">All original columns from the uploaded dataset</p>
+               </div>
+               <div className="overflow-y-auto flex-1 p-0">
+                 {rawLoading ? (
+                   <div className="p-8 text-center text-muted-foreground text-sm font-medium">Loading raw data...</div>
+                 ) : rawData ? (
+                   <table className="w-full text-left border-collapse text-xs">
+                     <tbody>
+                       {Object.entries(rawData).map(([key, val], idx) => (
+                         <tr key={key} className={idx % 2 === 0 ? "bg-transparent" : "bg-muted/40"}>
+                           <td className="px-4 py-2.5 border-b border-hairline font-mono text-[10px] text-muted-foreground w-1/2 break-words">
+                             {key}
+                           </td>
+                           <td className="px-4 py-2.5 border-b border-hairline font-medium text-foreground w-1/2 break-words">
+                             {val === null ? <span className="opacity-40 italic">null</span> : String(val)}
+                           </td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 ) : (
+                   <div className="p-8 text-center text-rose-500 text-sm font-medium">Could not load raw data.</div>
+                 )}
+               </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -107,6 +107,16 @@ export function QuadrantInsightsOverlay({
     return () => { cancelled = true; };
   }, [quadrant]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const tableColumns = useMemo(() => [
     { header: "Farmer", accessor: (r: QuadrantRecord) => <div><span className="font-semibold block">{r.name}</span><span className="text-[10px] opacity-55 font-mono">{r.farmerCode}</span></div>, sortKey: (r: QuadrantRecord) => r.name },
     { header: "Location", accessor: (r: QuadrantRecord) => <div>{r.village}<span className="block text-[10px] opacity-55">{r.block}</span></div>, sortKey: (r: QuadrantRecord) => `${r.block} ${r.village}` },
@@ -116,12 +126,13 @@ export function QuadrantInsightsOverlay({
     { header: "Nitrogen (kg/ha)", align: "right" as const, accessor: (r: QuadrantRecord) => r.nitrogen.toFixed(1), sortKey: (r: QuadrantRecord) => r.nitrogen },
     { header: "Irrigation", accessor: (r: QuadrantRecord) => readable(r.irrigation), sortKey: (r: QuadrantRecord) => r.irrigation || "" },
     { header: "Application", accessor: (r: QuadrantRecord) => readable(r.fertilizerMethod), sortKey: (r: QuadrantRecord) => r.fertilizerMethod || "" },
-    { header: "Organic Inputs", accessor: (r: QuadrantRecord) => r.organicInputs.length ? r.organicInputs.join(", ") : "None", sortKey: (r: QuadrantRecord) => r.organicInputs.join(" ") },
+    { header: "Fertilizers Applied", accessor: (r: QuadrantRecord) => r.fertilizers && Object.keys(r.fertilizers).length ? Object.entries(r.fertilizers).map(([k,v]) => `${k}: ${v}kg`).join(", ") : "None", sortKey: (r: QuadrantRecord) => r.fertilizers ? Object.keys(r.fertilizers).length : 0 },
+    { header: "Organic Inputs", accessor: (r: QuadrantRecord) => r.organicInputs?.length ? r.organicInputs.join(", ") : "None", sortKey: (r: QuadrantRecord) => (r.organicInputs || []).join(" ") },
   ], []);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto p-4 md:p-8 bg-black/50 backdrop-blur-sm flex items-center justify-center font-sans">
-      <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-7xl max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto p-4 md:p-8 bg-black/50 backdrop-blur-sm flex items-center justify-center font-sans" onClick={onClose}>
+      <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-7xl max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <button onClick={onClose} className="flex items-center gap-2 text-muted-foreground hover:text-foreground bg-muted/60 hover:bg-muted px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer">
@@ -145,23 +156,26 @@ export function QuadrantInsightsOverlay({
             <KPITile
               value={data.avgLargestPlotAcres?.toFixed(2) ?? "—"}
               unit="ac"
-              label={`Avg largest plot${comparisonSuffix(data.comparisons.plotSize, "ac")}`}
+              label={`Avg largest plot${comparisonSuffix(data.comparisons?.plotSize, "ac")}`}
             />
             <KPITile
+              valueClassName="!text-[18px] leading-tight whitespace-normal break-words"
               value={readable(data.dominantIrrigation?.value)}
-              label={`Top irrigation${data.dominantIrrigation ? ` · ${data.dominantIrrigation.pct}%` : ""}${comparisonSuffix(data.comparisons.irrigation, "%")}`}
+              label={`Top irrigation${data.dominantIrrigation ? ` · ${data.dominantIrrigation.pct}%` : ""}${comparisonSuffix(data.comparisons?.irrigation, "%")}`}
             />
             <KPITile
+              valueClassName="!text-[18px] leading-tight whitespace-normal break-words"
               value={readable(data.dominantMethod?.value)}
-              label={`Top application${data.dominantMethod ? ` · ${data.dominantMethod.pct}%` : ""}${comparisonSuffix(data.comparisons.fertilizerMethod, "%")}`}
+              label={`Top application${data.dominantMethod ? ` · ${data.dominantMethod.pct}%` : ""}${comparisonSuffix(data.comparisons?.fertilizerMethod, "%")}`}
             />
             <KPITile
+              valueClassName="!text-[18px] leading-tight whitespace-normal break-words"
               value={`${data.organicPct}%`}
-              label={`Organic adoption${comparisonSuffix(data.comparisons.organicAdoption, "%")}`}
+              label={`Organic adoption${comparisonSuffix(data.comparisons?.organicAdoption, "%")}`}
             />
           </div>
           <div className="rounded-xl px-4 py-3 text-[12px]" style={{ background: "var(--secondary)", color: "var(--ink)" }}>
-            {summarySentence(meta.label, data)}
+            {data.comparisons ? summarySentence(meta.label, data) : ""}
           </div>
           <DataTable<QuadrantRecord>
             title={`${meta.label} Farmers`}

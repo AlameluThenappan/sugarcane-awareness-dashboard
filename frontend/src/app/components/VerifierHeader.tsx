@@ -28,21 +28,21 @@ export function VerifierHeader({ onUpload }: { onUpload: () => void }) {
         backdropFilter: "blur(20px)",
       }}
     >
-      <div className="w-full px-5 md:px-8 h-[72px] flex items-center justify-between">
-        <h1 className="text-[17px] font-semibold" style={{ color: "var(--ink)" }}>
+      <div className="w-full px-5 md:px-8 h-[96px] flex items-center justify-between">
+        <h1 className="text-[20px] font-semibold" style={{ color: "var(--ink)" }}>
           Verification Overview
         </h1>
 
         <div className="flex items-center gap-2.5">
           <button
             onClick={onUpload}
-            className="flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold transition-opacity hover:opacity-90"
+            className="flex items-center gap-2.5 rounded-xl px-6 py-3.5 text-[15px] font-bold shadow-lg transition-transform hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
             style={{
               background: "linear-gradient(135deg, var(--sage) 0%, var(--olive) 100%)",
               color: "#F5F7F2",
             }}
           >
-            <Upload size={14} strokeWidth={2.2} />
+            <Upload size={18} strokeWidth={2.5} />
             Upload export
           </button>
 

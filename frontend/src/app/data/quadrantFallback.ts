@@ -184,6 +184,7 @@ export function fallbackQuadrantInsights(quadrant: QuadrantKey): QuadrantInsight
       irrigation: r.irrigation,
       fertilizerMethod: r.fertilizerMethod,
       organicInputs: r.fym === "Yes" ? ["Farm Yard Manure"] : [],
+      fertilizers: {},
     }));
 
   return {

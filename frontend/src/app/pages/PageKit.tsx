@@ -37,9 +37,9 @@ export function PageHeader({
 }
 
 export function KPITile({
-  value, unit, label, delay = 0, icon,
+  value, unit, label, delay = 0, icon, valueClassName = "",
 }: {
-  value: string | number; unit?: string; label: string; delay?: number; icon?: React.ReactNode;
+  value: string | number; unit?: string; label: string; delay?: number; icon?: React.ReactNode; valueClassName?: string;
 }) {
   const reduceMotion = useReducedMotion();
   return (
@@ -47,14 +47,16 @@ export function KPITile({
       initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: reduceMotion ? 0 : delay, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      className="glass-card-master p-5"
+      className="glass-card-master p-5 flex flex-col h-full justify-between gap-1"
     >
-      {icon && <div className="mb-3" style={{ color: "var(--gold)" }}>{icon}</div>}
-      <div className="kpi-number">
-        {value}
-        {unit && <span className="kpi-number-unit">{unit}</span>}
+      <div>
+        {icon && <div className="mb-3" style={{ color: "var(--gold)" }}>{icon}</div>}
+        <div className={`kpi-number flex items-baseline gap-1 ${valueClassName}`}>
+          {value}
+          {unit && <span className="kpi-number-unit">{unit}</span>}
+        </div>
       </div>
-      <p className="text-[12px] mt-1.5" style={{ color: "var(--ink)", opacity: 0.55 }}>{label}</p>
+      <p className="text-[12px] mt-1.5 leading-snug" style={{ color: "var(--ink)", opacity: 0.55 }}>{label}</p>
     </motion.div>
   );
 }

@@ -13,8 +13,12 @@ with eligible as (
     rs.largest_plot_acres,
     rs.irrigation_type,
     rs.fertilizer_application_method,
-    rs.yield_tonnes_ha::numeric as yield_tonnes_ha,
-    rs.tna::numeric as nitrogen_kg_ha,
+    coalesce(rs.yield_tonnes_ha, 0)::numeric as yield_tonnes_ha,
+    case 
+      when nullif(trim(rs.tna), '') is null then 0
+      when rs.tna = 'NaN' then 0
+      else rs.tna::numeric 
+    end as nitrogen_kg_ha,
     array_remove(array[
       case when coalesce(rs.farm_yard_manure_kg, 0) > 0 then 'Farm Yard Manure' end,
       case when coalesce(rs.vermicompost_kg, 0) > 0 then 'Vermicompost' end,
@@ -22,18 +26,32 @@ with eligible as (
       case when coalesce(rs.poultry_manure_kg, 0) > 0 then 'Poultry Manure' end,
       case when coalesce(rs.press_mud_kg, 0) > 0 then 'Press Mud' end,
       case when coalesce(rs.jeevamrut_kg, 0) > 0 then 'Jeevamrut/GhanaJivamrut' end
-    ], null) as organic_inputs
+    ], null) as organic_inputs,
+    coalesce((select jsonb_object_agg(k, v)
+     from (
+       values 
+         ('Urea', coalesce(rs.urea_kg, 0)),
+         ('DAP', coalesce(rs.dap_kg, 0)),
+         ('SSP', coalesce(rs.ssp_kg, 0)),
+         ('MOP', coalesce(rs.mop_kg, 0)),
+         ('NPK 10:26:26', coalesce(rs.npk_10_26_26_kg, 0)),
+         ('NPK 12:32:16', coalesce(rs.npk_12_32_16_kg, 0)),
+         ('NPS 20:20:0:13', coalesce(rs.nps_20_20_0_13_kg, 0)),
+         ('Ammonium Sulphate', coalesce(rs.ammonium_sulphate_kg, 0)),
+         ('Ammonium Chloride', coalesce(rs.ammonium_chloride_kg, 0)),
+         ('NPK 17:17:17', coalesce(rs.npk_17_17_17_kg, 0)),
+         ('NPKS 16:20:0:13', coalesce(rs.npks_16_20_0_13_kg, 0)),
+         ('NPK 16:16:16', coalesce(rs.npk_16_16_16_kg, 0)),
+         ('NPK 12:61:0', coalesce(rs.npk_12_61_0_kg, 0)),
+         ('NPKS 15:15:15:09', coalesce(rs.npks_15_15_15_09_kg, 0)),
+         ('NPK 19:19:19', coalesce(rs.npk_19_19_19_kg, 0)),
+         ('Mono 11:52:0', coalesce(rs.mono_11_52_0_kg, 0)),
+         ('Calcium Ammonium Nitrate', coalesce(rs.calcium_ammonium_nitrate_kg, 0))
+     ) as t(k,v)
+     where v > 0), '{}'::jsonb) as fertilizers
   from raw.sugarcane_survey rs
   join survey.surveys s on s.unique_id = rs.unique_id
   where rs.validation_status = 'Approved'
-    and coalesce(rs.yield_tonnes_ha, 0) > 0
-    -- rs.tna is text; nullif(trim(...), '') rejects null/empty before the
-    -- numeric cast, and excluding 'NaN' matters because Postgres numeric
-    -- treats NaN as greater than any other value, so a plain "> 0" check
-    -- on a NaN reading would (wrongly) pass it through as valid.
-    and nullif(trim(rs.tna), '') is not null
-    and rs.tna::numeric <> 'NaN'::numeric
-    and rs.tna::numeric > 0
 ), thresholds as (
   select round(avg(yield_tonnes_ha), 1) as yield_split, 130::numeric as n_threshold
   from eligible
@@ -113,7 +131,8 @@ as $function$
       'village', village_name, 'block', block_name, 'cropType', crop_type,
       'largestPlotAcres', largest_plot_acres, 'yield', yield_tonnes_ha,
       'nitrogen', nitrogen_kg_ha, 'irrigation', irrigation_type,
-      'fertilizerMethod', fertilizer_application_method, 'organicInputs', organic_inputs
+      'fertilizerMethod', fertilizer_application_method, 'organicInputs', organic_inputs,
+      'fertilizers', fertilizers
     ) order by farmer_name, survey_id) from source), '[]'::json)
   )
   from modes;
